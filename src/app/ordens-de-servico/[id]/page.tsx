@@ -2,11 +2,10 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { supabase } from "@/lib/supabaseClient";
-import type { CrisTechOS, CrisTechCliente, CrisTechOSFoto } from "@/types";
+import type { CrisTechOS, CrisTechCliente, CrisTechOSFoto, CrisTechUsuario } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -21,7 +20,7 @@ export default function OSPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const [os, setOs] = useState<(CrisTechOS & { cliente?: CrisTechCliente; tecnico?: { nome: string }; fotos?: CrisTechOSFoto[] }) | null>(null);
+  const [os, setOs] = useState<(CrisTechOS & { cliente?: CrisTechCliente; tecnico?: CrisTechUsuario; fotos?: CrisTechOSFoto[] }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [fotoModal, setFotoModal] = useState<string | null>(null);
 
@@ -36,7 +35,7 @@ export default function OSPage() {
         .from("cris_tech_os_fotos")
         .select("*")
         .eq("os_id", id);
-      const o = osData as CrisTechOS & { cris_tech_clientes?: CrisTechCliente; cris_tech_usuarios?: CrisTechUsuario
+      const o = osData as CrisTechOS & { cris_tech_clientes?: CrisTechCliente; cris_tech_usuarios?: CrisTechUsuario };
       if (o) {
         setOs({
           ...o,
@@ -123,7 +122,7 @@ export default function OSPage() {
                 Data conclusão: {formatDate(os.data_conclusao) || "—"}
               </p>
               <p className="text-[#9CA3AF]">
-                Técnico: {(os.tecnico as { nome?: string })?.nome ?? "—"}
+                Técnico: {os.tecnico?.nome ?? "—"}
               </p>
             </div>
           </div>

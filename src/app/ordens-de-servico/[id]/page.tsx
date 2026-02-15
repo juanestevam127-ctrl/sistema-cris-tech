@@ -29,14 +29,14 @@ export default function OSPage() {
     const load = async () => {
       const { data: osData } = await supabase
         .from("cris_tech_ordens_servico")
-        .select("*, cris_tech_clientes(*), cris_tech_usuarios!tecnico_responsavel(nome)")
+        .select("*, cris_tech_clientes(*), cris_tech_usuarios!tecnico_responsavel(id, nome, email, role, created_at)")
         .eq("id", id)
         .single();
       const { data: fotos } = await supabase
         .from("cris_tech_os_fotos")
         .select("*")
         .eq("os_id", id);
-      const o = osData as CrisTechOS & { cris_tech_clientes?: CrisTechCliente; cris_tech_usuarios?: { nome: string } };
+      const o = osData as CrisTechOS & { cris_tech_clientes?: CrisTechCliente; cris_tech_usuarios?: CrisTechUsuario
       if (o) {
         setOs({
           ...o,

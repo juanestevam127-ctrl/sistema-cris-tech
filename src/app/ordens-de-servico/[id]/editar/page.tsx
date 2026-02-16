@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import type { CrisTechOS } from "@/types";
+import type { CrisTechOS, CrisTechOSFoto } from "@/types";
+import { UploadFotosOS } from "@/components/manutencao/UploadFotosOS";
 
 export default function EditarOSPage() {
   const params = useParams();
@@ -33,6 +34,7 @@ export default function EditarOSPage() {
   const [garantiaMeses, setGarantiaMeses] = useState("0");
   const [observacoes, setObservacoes] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
+  const [fotosUrls, setFotosUrls] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -58,6 +60,16 @@ export default function EditarOSPage() {
         setObservacoes(o.observacoes ?? "");
         setTecnicoId(o.tecnico_responsavel ?? "");
       }
+
+      const { data: fotosData } = await supabase
+        .from("cris_tech_os_fotos")
+        .select("url")
+        .eq("os_id", id);
+
+      if (fotosData) {
+        setFotosUrls(fotosData.map(f => f.url));
+      }
+
       setLoading(false);
     };
     load();
@@ -91,14 +103,14 @@ export default function EditarOSPage() {
           garantia_meses: parseInt(garantiaMeses, 10) || 0,
           data_vencimento_garantia:
             status === "concluida" &&
-            parseInt(garantiaMeses, 10) > 0 &&
-            dataConclusao
+              parseInt(garantiaMeses, 10) > 0 &&
+              dataConclusao
               ? new Date(
-                  new Date(dataConclusao).getTime() +
-                    parseInt(garantiaMeses, 10) * 30 * 24 * 60 * 60 * 1000
-                )
-                  .toISOString()
-                  .split("T")[0]
+                new Date(dataConclusao).getTime() +
+                parseInt(garantiaMeses, 10) * 30 * 24 * 60 * 60 * 1000
+              )
+                .toISOString()
+                .split("T")[0]
               : null,
           observacoes: observacoes || null,
           tecnico_responsavel: tecnicoId || null,
@@ -106,6 +118,19 @@ export default function EditarOSPage() {
         })
         .eq("id", id);
       if (error) throw error;
+
+      // Sincronizar fotos: deleta todas e reinsere a lista atual
+      await supabase.from("cris_tech_os_fotos").delete().eq("os_id", id);
+      if (fotosUrls.length > 0) {
+        await supabase.from("cris_tech_os_fotos").insert(
+          fotosUrls.map(url => ({
+            os_id: id,
+            url,
+            tipo: "equipamento"
+          }))
+        );
+      }
+
       toast.success("OS atualizada!");
       router.push(`/ordens-de-servico/${id}`);
     } catch (e) {
@@ -301,6 +326,9 @@ export default function EditarOSPage() {
               rows={2}
             />
           </div>
+
+          <UploadFotosOS onFotosChange={setFotosUrls} fotosIniciais={fotosUrls} />
+
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => router.back()}>
               Cancelar

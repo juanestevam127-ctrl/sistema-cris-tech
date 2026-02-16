@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
+import { UploadFotosOS } from "@/components/manutencao/UploadFotosOS";
 
 export default function NovaOSPage() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function NovaOSPage() {
   const [garantiaMeses, setGarantiaMeses] = useState("0");
   const [observacoes, setObservacoes] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
+  const [fotosUrls, setFotosUrls] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -72,11 +74,11 @@ export default function NovaOSPage() {
           data_vencimento_garantia:
             status === "concluida" && parseInt(garantiaMeses, 10) > 0 && dataConclusao
               ? new Date(
-                  new Date(dataConclusao).getTime() +
-                    parseInt(garantiaMeses, 10) * 30 * 24 * 60 * 60 * 1000
-                )
-                  .toISOString()
-                  .split("T")[0]
+                new Date(dataConclusao).getTime() +
+                parseInt(garantiaMeses, 10) * 30 * 24 * 60 * 60 * 1000
+              )
+                .toISOString()
+                .split("T")[0]
               : null,
           observacoes: observacoes || null,
           tecnico_responsavel: tecnicoId || null,
@@ -85,8 +87,28 @@ export default function NovaOSPage() {
         .select("id")
         .single();
       if (error) throw error;
+
+      const osId = (data as { id: string }).id;
+
+      // Inserir as fotos se existirem
+      if (fotosUrls.length > 0) {
+        const { error: fotosError } = await supabase
+          .from("cris_tech_os_fotos")
+          .insert(
+            fotosUrls.map(url => ({
+              os_id: osId,
+              url,
+              tipo: "equipamento"
+            }))
+          );
+        if (fotosError) {
+          console.error("Erro ao salvar fotos:", fotosError);
+          toast.error("OS criada, mas houve erro ao salvar as fotos.");
+        }
+      }
+
       toast.success("OS criada!");
-      router.push(`/ordens-de-servico/${(data as { id: string }).id}`);
+      router.push(`/ordens-de-servico/${osId}`);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao criar OS.");
@@ -187,6 +209,9 @@ export default function NovaOSPage() {
             <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">OBSERVAÇÕES</label>
             <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={2} />
           </div>
+
+          <UploadFotosOS onFotosChange={setFotosUrls} />
+
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
             <Button variant="primary" onClick={salvar} loading={salvando}>Salvar OS</Button>

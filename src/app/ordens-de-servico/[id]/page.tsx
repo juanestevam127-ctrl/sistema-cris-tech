@@ -20,31 +20,42 @@ export default function OSPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const [os, setOs] = useState<(CrisTechOS & { cliente?: CrisTechCliente; tecnico?: CrisTechUsuario; fotos?: CrisTechOSFoto[] }) | null>(null);
+  const [os, setOs] = useState<(Omit<CrisTechOS, "tecnico"> & { cliente?: CrisTechCliente; tecnico?: { nome: string }; fotos?: CrisTechOSFoto[] }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [fotoModal, setFotoModal] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      const { data: osData } = await supabase
-        .from("cris_tech_ordens_servico")
-        .select("*, cris_tech_clientes(*), cris_tech_usuarios!tecnico_responsavel(id, nome, email, role, created_at)")
-        .eq("id", id)
-        .single();
-      const { data: fotos } = await supabase
-        .from("cris_tech_os_fotos")
-        .select("*")
-        .eq("os_id", id);
-      const o = osData as CrisTechOS & { cris_tech_clientes?: CrisTechCliente; cris_tech_usuarios?: CrisTechUsuario };
-      if (o) {
-        setOs({
-          ...o,
-          cliente: o.cris_tech_clientes,
-          tecnico: o.cris_tech_usuarios,
-          fotos: (fotos ?? []) as CrisTechOSFoto[],
-        });
+      try {
+        const { data: osData, error: osError } = await supabase
+          .from("cris_tech_ordens_servico")
+          .select("*, cris_tech_clientes(*), cris_tech_usuarios!tecnico_responsavel(nome)")
+          .eq("id", id)
+          .single();
+
+        if (osError) throw osError;
+
+        const { data: fotos, error: fotosError } = await supabase
+          .from("cris_tech_os_fotos")
+          .select("*")
+          .eq("os_id", id);
+
+        if (fotosError) throw fotosError;
+
+        const o = osData as any;
+        if (o) {
+          setOs({
+            ...o,
+            cliente: o.cris_tech_clientes,
+            tecnico: o.cris_tech_usuarios as { nome: string } | undefined,
+            fotos: (fotos ?? []) as CrisTechOSFoto[],
+          });
+        }
+      } catch (e) {
+        console.error("Erro:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, [id]);
@@ -81,9 +92,8 @@ export default function OSPage() {
               OS-{String(os.numero_os).padStart(4, "0")}
             </h1>
             <span
-              className={`mt-1 inline-block rounded px-2 py-0.5 text-sm ${
-                STATUS_COLORS[os.status] ?? "bg-[#1E1E1E]"
-              }`}
+              className={`mt-1 inline-block rounded px-2 py-0.5 text-sm ${STATUS_COLORS[os.status] ?? "bg-[#1E1E1E]"
+                }`}
             >
               {os.status.replace("_", " ")}
             </span>
@@ -122,7 +132,7 @@ export default function OSPage() {
                 Data conclusão: {formatDate(os.data_conclusao) || "—"}
               </p>
               <p className="text-[#9CA3AF]">
-                Técnico: {os.tecnico?.nome ?? "—"}
+                Técnico: {(os.tecnico as { nome?: string })?.nome ?? "—"}
               </p>
             </div>
           </div>
@@ -181,22 +191,29 @@ export default function OSPage() {
 
         {os.fotos && os.fotos.length > 0 && (
           <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-6">
-            <h2 className="mb-4 font-semibold text-white">Fotos</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <h2 className="mb-4 font-semibold text-white">Fotos da OS</h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
               {os.fotos.map((f) => (
                 <div
                   key={f.id}
-                  className="cursor-pointer overflow-hidden rounded-lg border border-[#1E1E1E]"
+                  className="group relative cursor-pointer overflow-hidden rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] aspect-square transition-transform hover:scale-[1.02]"
                   onClick={() => setFotoModal(f.url)}
                 >
                   <img
                     src={f.url}
                     alt={f.descricao || ""}
-                    className="h-[120px] w-full object-cover"
+                    className="h-full w-full object-cover"
                   />
-                  <p className="truncate bg-[#0A0A0A] px-2 py-1 text-xs text-[#9CA3AF]">
-                    {f.tipo} — {f.descricao || "—"}
-                  </p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 flex flex-col justify-end p-2">
+                    <p className="text-[10px] font-bold uppercase text-[#CC0000]">
+                      {f.tipo}
+                    </p>
+                    {f.descricao && (
+                      <p className="truncate text-xs text-white">
+                        {f.descricao}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -227,3 +244,4 @@ export default function OSPage() {
     </AppLayout>
   );
 }
+

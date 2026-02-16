@@ -26,19 +26,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
-    const fetchUsuario = async (userId: string) => {
+    const fetchUsuario = async (userId: string, userEmail: string): Promise<CrisTechUsuario | null> => {
         try {
-            const { data, error } = await supabase
-                .from("cris_tech_usuarios")
-                .select("*")
-                .eq("id", userId)
-                .single();
+            // Usar API server-side para buscar perfil (bypassa RLS)
+            const response = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: userEmail, authId: userId })
+            });
 
-            if (error) {
-                console.error("Erro ao buscar dados do usuário:", error);
+            if (!response.ok) {
+                console.error("Erro ao verificar usuário via API");
                 return null;
             }
-            return data as CrisTechUsuario;
+
+            const data = await response.json();
+            return data.usuario as CrisTechUsuario;
         } catch (err) {
             console.error("Exceção ao buscar dados do usuário:", err);
             return null;
@@ -50,9 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
                 const { data: { user: authUser } } = await supabase.auth.getUser();
 
-                if (authUser) {
+                if (authUser && authUser.email) {
                     setUser(authUser);
-                    const uData = await fetchUsuario(authUser.id);
+                    const uData = await fetchUsuario(authUser.id, authUser.email);
                     setUsuario(uData);
                 } else {
                     setUser(null);
@@ -69,9 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                if (session?.user) {
+                if (session?.user && session.user.email) {
                     setUser(session.user);
-                    const uData = await fetchUsuario(session.user.id);
+                    const uData = await fetchUsuario(session.user.id, session.user.email);
                     setUsuario(uData);
                 } else {
                     setUser(null);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useClientesAll } from "@/hooks/useClientesAll";
 import { useUsuarios } from "@/hooks/useUsuarios";
@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
 import { UploadFotosOS } from "@/components/manutencao/UploadFotosOS";
 
-export default function NovaOSPage() {
+function NovaOSForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clientePreSelect = searchParams.get("cliente");
@@ -219,5 +219,19 @@ export default function NovaOSPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function NovaOSPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
+        </div>
+      </AppLayout>
+    }>
+      <NovaOSForm />
+    </Suspense>
   );
 }

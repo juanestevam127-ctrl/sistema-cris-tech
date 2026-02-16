@@ -14,41 +14,59 @@ export function useAuth() {
 
   useEffect(() => {
     const fetchUsuario = async (userId: string) => {
-      const { data, error } = await supabase
-        .from("cris_tech_usuarios")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      if (error || !data) return null;
-      return data as CrisTechUsuario;
+      try {
+        const { data, error } = await supabase
+          .from("cris_tech_usuarios")
+          .select("*")
+          .eq("id", userId)
+          .single();
+        if (error || !data) {
+          console.error("Erro ao buscar usuário na tabela:", error);
+          return null;
+        }
+        return data as CrisTechUsuario;
+      } catch (err) {
+        console.error("Exceção ao buscar usuário:", err);
+        return null;
+      }
     };
 
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        const u = await fetchUsuario(session.user.id);
-        setUsuario(u ?? null);
-      } else {
-        setUser(null);
-        setUsuario(null);
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          setUser(authUser);
+          const u = await fetchUsuario(authUser.id);
+          setUsuario(u ?? null);
+        } else {
+          setUser(null);
+          setUsuario(null);
+        }
+      } catch (err) {
+        console.error("Erro na inicialização do Auth:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          const u = await fetchUsuario(session.user.id);
-          setUsuario(u ?? null);
-        } else {
-          setUser(null);
-          setUsuario(null);
+        try {
+          if (session?.user) {
+            setUser(session.user);
+            const u = await fetchUsuario(session.user.id);
+            setUsuario(u ?? null);
+          } else {
+            setUser(null);
+            setUsuario(null);
+          }
+        } catch (err) {
+          console.error("Erro na mudança de estado do Auth:", err);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 

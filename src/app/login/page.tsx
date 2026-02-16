@@ -35,16 +35,47 @@ export default function LoginPage() {
         return;
       }
 
-      const { data: usuarioData, error: usuarioError } = await supabase
+      let { data: usuarioData, error: usuarioError } = await supabase
         .from("cris_tech_usuarios")
-        .select("id")
+        .select("*")
         .eq("id", authData.user.id)
-        .single();
+        .maybeSingle();
 
-      if (usuarioError || !usuarioData) {
-        console.error("Usuário não encontrado na tabela:", usuarioError);
+      // Se não encontrou por ID, tentar por e-mail (ID Mismatch Fix)
+      if (!usuarioData) {
+        console.warn("Usuário não encontrado por ID, tentando por e-mail...");
+        const { data: byEmail } = await supabase
+          .from("cris_tech_usuarios")
+          .select("*")
+          .eq("email", authData.user.email)
+          .maybeSingle();
+
+        if (byEmail) {
+          console.info("ID Mismatch detectado. Iniciando reparo automático...");
+
+          // Chamar API de reparo (usando fetch interno)
+          const repairRes = await fetch("/api/auth/repair-id", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: authData.user.email,
+              authId: authData.user.id
+            })
+          });
+
+          if (repairRes.ok) {
+            console.info("ID reparado com sucesso!");
+            usuarioData = byEmail; // Prosseguir com os dados encontrados
+          } else {
+            console.error("Falha ao reparar ID automaticamente.");
+          }
+        }
+      }
+
+      if (!usuarioData) {
+        console.error("Usuário não encontrado no banco:", usuarioError);
         await supabase.auth.signOut();
-        setError("Acesso não autorizado.");
+        setError("Acesso não autorizado. Perfil de usuário não configurado.");
         setLoading(false);
         return;
       }

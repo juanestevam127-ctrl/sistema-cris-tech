@@ -42,16 +42,20 @@ export default function LoginPage() {
         .single();
 
       if (usuarioError || !usuarioData) {
+        console.error("Usuário não encontrado na tabela:", usuarioError);
         await supabase.auth.signOut();
         setError("Acesso não autorizado.");
         setLoading(false);
         return;
       }
 
+      console.log("Login bem-sucedido, redirecionando...");
       toast.success("Login realizado com sucesso!");
-      router.push("/operacao");
-      router.refresh();
-    } catch {
+
+      // Usar window.location como fallback mais confiável
+      window.location.href = "/operacao";
+    } catch (err) {
+      console.error("Erro no login:", err);
       setError("Erro ao conectar. Tente novamente.");
     } finally {
       setLoading(false);

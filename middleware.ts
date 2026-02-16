@@ -15,16 +15,18 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
-  cookiesToSet.forEach(({ name, value }) =>
-    response.cookies.set(name, value)
-  );
-}
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
       },
     }
   );
 
+  // Refresh session to ensure we have the latest auth state
   const { data: { session } } = await supabase.auth.getSession();
 
+  // If on login page and already authenticated, redirect to operacao
   if (pathname === "/login") {
     if (session) {
       return NextResponse.redirect(new URL("/operacao", request.url));
@@ -32,6 +34,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // If not authenticated and not on login page, redirect to login
   if (!session) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -40,5 +43,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)\"],
 };

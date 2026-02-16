@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS cris_tech_layouts (
   nome TEXT NOT NULL,
   webhook_url TEXT NOT NULL,
   descricao TEXT,
-  criado_por UUID REFERENCES cris_tech_usuarios(id),
+  criado_por UUID REFERENCES cris_tech_usuarios(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -40,7 +40,10 @@ CREATE POLICY "Autenticados leem layouts" ON cris_tech_layouts
   FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "master e admin gerenciam layouts" ON cris_tech_layouts
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM cris_tech_usuarios WHERE role IN ('master','admin'))
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role IN ('master', 'admin')
+    )
   );
 
 -- RLS - Campos
@@ -49,7 +52,10 @@ CREATE POLICY "Autenticados leem campos" ON cris_tech_campos
   FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "master e admin gerenciam campos" ON cris_tech_campos
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM cris_tech_usuarios WHERE role IN ('master','admin'))
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role IN ('master', 'admin')
+    )
   );
 
 -- RLS - Usuários

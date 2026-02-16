@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS cris_tech_clientes (
 CREATE TABLE IF NOT EXISTS cris_tech_ordens_servico (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   numero_os INTEGER UNIQUE,
-  cliente_id UUID NOT NULL REFERENCES cris_tech_clientes(id) ON DELETE RESTRICT,
+  cliente_id UUID NOT NULL REFERENCES cris_tech_clientes(id) ON DELETE CASCADE,
   tipo TEXT NOT NULL DEFAULT 'manutencao'
     CHECK (tipo IN ('manutencao', 'venda_equipamento', 'instalacao', 'outros')),
   status TEXT NOT NULL DEFAULT 'aberta'
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS cris_tech_ordens_servico (
   garantia_meses INTEGER DEFAULT 0,
   data_vencimento_garantia DATE,
   observacoes TEXT,
-  tecnico_responsavel UUID REFERENCES cris_tech_usuarios(id),
-  criado_por UUID REFERENCES cris_tech_usuarios(id),
+  tecnico_responsavel UUID REFERENCES cris_tech_usuarios(id) ON DELETE SET NULL,
+  criado_por UUID REFERENCES cris_tech_usuarios(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS cris_tech_os_fotos (
 CREATE TABLE IF NOT EXISTS cris_tech_orcamentos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   numero_orcamento INTEGER UNIQUE,
-  cliente_id UUID NOT NULL REFERENCES cris_tech_clientes(id) ON DELETE RESTRICT,
+  cliente_id UUID NOT NULL REFERENCES cris_tech_clientes(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'pendente'
     CHECK (status IN ('pendente', 'aprovado', 'recusado', 'expirado')),
   data_emissao DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -117,7 +117,10 @@ CREATE POLICY "Autenticados editam clientes" ON cris_tech_clientes
   FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "master admin excluem clientes" ON cris_tech_clientes
   FOR DELETE USING (
-    auth.uid() IN (SELECT id FROM cris_tech_usuarios WHERE role IN ('master','admin'))
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role IN ('master', 'admin')
+    )
   );
 
 ALTER TABLE cris_tech_ordens_servico ENABLE ROW LEVEL SECURITY;
@@ -129,7 +132,10 @@ CREATE POLICY "Autenticados editam OS" ON cris_tech_ordens_servico
   FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "master admin excluem OS" ON cris_tech_ordens_servico
   FOR DELETE USING (
-    auth.uid() IN (SELECT id FROM cris_tech_usuarios WHERE role IN ('master','admin'))
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role IN ('master', 'admin')
+    )
   );
 
 ALTER TABLE cris_tech_os_fotos ENABLE ROW LEVEL SECURITY;
@@ -145,7 +151,10 @@ CREATE POLICY "Autenticados editam orcamentos" ON cris_tech_orcamentos
   FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "master admin excluem orcamentos" ON cris_tech_orcamentos
   FOR DELETE USING (
-    auth.uid() IN (SELECT id FROM cris_tech_usuarios WHERE role IN ('master','admin'))
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role IN ('master', 'admin')
+    )
   );
 
 ALTER TABLE cris_tech_orcamento_itens ENABLE ROW LEVEL SECURITY;

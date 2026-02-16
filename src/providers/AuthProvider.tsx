@@ -48,8 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const initialize = async () => {
             try {
-                // Usar getUser em vez de getSession para garantir validação com o servidor
-                const { data: { user: authUser }, error } = await supabase.auth.getUser();
+                const { data: { user: authUser } } = await supabase.auth.getUser();
 
                 if (authUser) {
                     setUser(authUser);

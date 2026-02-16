@@ -13,7 +13,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { usuario, signOut } = useAuth();
+  const { user, usuario, signOut } = useAuth();
 
   const getRoleLabel = (role: string) => {
     switch (role) {
@@ -68,8 +68,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             href="/operacao"
             onClick={onClose}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname === "/operacao"
-                ? "bg-[#A30000] text-white hover:bg-[#A30000]"
-                : ""
+              ? "bg-[#A30000] text-white hover:bg-[#A30000]"
+              : ""
               }`}
           >
             <Image size={20} />
@@ -79,8 +79,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             href="/clientes"
             onClick={onClose}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname.startsWith("/clientes")
-                ? "bg-[#A30000] text-white hover:bg-[#A30000]"
-                : ""
+              ? "bg-[#A30000] text-white hover:bg-[#A30000]"
+              : ""
               }`}
           >
             <Users size={20} />
@@ -90,8 +90,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             href="/ordens-de-servico"
             onClick={onClose}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname.startsWith("/ordens-de-servico")
-                ? "bg-[#A30000] text-white hover:bg-[#A30000]"
-                : ""
+              ? "bg-[#A30000] text-white hover:bg-[#A30000]"
+              : ""
               }`}
           >
             <Wrench size={20} />
@@ -101,8 +101,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             href="/orcamentos"
             onClick={onClose}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname.startsWith("/orcamentos")
-                ? "bg-[#A30000] text-white hover:bg-[#A30000]"
-                : ""
+              ? "bg-[#A30000] text-white hover:bg-[#A30000]"
+              : ""
               }`}
           >
             <FileText size={20} />
@@ -113,8 +113,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               href="/configuracao"
               onClick={onClose}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname === "/configuracao"
-                  ? "bg-[#A30000] text-white hover:bg-[#A30000]"
-                  : ""
+                ? "bg-[#A30000] text-white hover:bg-[#A30000]"
+                : ""
                 }`}
             >
               <Settings size={20} />
@@ -127,17 +127,17 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <div className="border-t border-[#1E1E1E] p-4">
           <div className="mb-3 flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1E1E1E] text-sm font-medium text-white">
-              {usuario?.nome?.[0]?.toUpperCase() ?? usuario?.email?.[0]?.toUpperCase() ?? "?"}
+              {usuario?.nome?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm text-white">
-                {usuario?.nome || usuario?.email}
+                {usuario?.nome || user?.email || "Usuário"}
               </p>
               <p className="truncate text-xs text-[#9CA3AF]">
-                {usuario?.email}
+                {user?.email}
               </p>
               <span className="text-xs font-medium text-[#CC0000]">
-                {usuario && getRoleLabel(usuario.role)}
+                {usuario ? getRoleLabel(usuario.role) : "Carregando..."}
               </span>
             </div>
           </div>

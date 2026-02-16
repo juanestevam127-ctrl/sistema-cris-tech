@@ -23,19 +23,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session to ensure we have the latest auth state
-  const { data: { session } } = await supabase.auth.getSession();
+  // Refresh session and validate user
+  const { data: { user } } = await supabase.auth.getUser();
 
   // If on login page and already authenticated, redirect to operacao
   if (pathname === "/login") {
-    if (session) {
+    if (user) {
       return NextResponse.redirect(new URL("/operacao", request.url));
     }
     return response;
   }
 
   // If not authenticated and not on login page, redirect to login
-  if (!session) {
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

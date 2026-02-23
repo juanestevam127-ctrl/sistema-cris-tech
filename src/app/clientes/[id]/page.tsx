@@ -11,12 +11,11 @@ import { Pencil } from "lucide-react";
 import type { CrisTechCliente, CrisTechOS, CrisTechOrcamento } from "@/types";
 import { formatPhone, formatCpfCnpj, formatCurrency, formatDate } from "@/lib/utils";
 
-const STATUS_OS_COLORS: Record<string, string> = {
-  aberta: "bg-[#3B82F6]",
-  em_andamento: "bg-[#F59E0B]",
-  aguardando_pecas: "bg-[#F97316]",
-  concluida: "bg-[#22C55E]",
-  cancelada: "bg-[#6B7280]",
+const IMAGEM_OS_COLORS: Record<string, string> = {
+  pendente: "bg-[#374151] text-[#9CA3AF]",
+  gerando: "bg-amber-900/40 text-amber-400",
+  concluida: "bg-green-900/40 text-green-400",
+  erro: "bg-red-900/40 text-red-400",
 };
 
 const STATUS_ORC_COLORS: Record<string, string> = {
@@ -54,8 +53,8 @@ export default function ClientePerfilPage() {
       const { data: os } = await supabase
         .from("cris_tech_ordens_servico")
         .select("*")
-        .eq("cliente_id", id)
-        .order("data_abertura", { ascending: false });
+        .eq("cliente_nome", c.nome)
+        .order("created_at", { ascending: false });
       setOrdens((os as CrisTechOS[]) ?? []);
 
       const { data: orc } = await supabase
@@ -71,9 +70,6 @@ export default function ClientePerfilPage() {
   }, [id]);
 
   const totalOS = ordens.length;
-  const osAbertas = ordens.filter((o) =>
-    ["aberta", "em_andamento", "aguardando_pecas"].includes(o.status)
-  ).length;
   const ultimaOS = ordens[0];
   const totalOrcamentos = orcamentos.length;
 
@@ -114,11 +110,10 @@ export default function ClientePerfilPage() {
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-semibold text-white">Dados do cliente</h2>
                 <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${
-                    cliente.tipo === "pessoa_fisica"
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${cliente.tipo === "pessoa_fisica"
                       ? "bg-[#1E1E1E] text-[#9CA3AF]"
                       : "bg-amber-900/30 text-amber-400"
-                  }`}
+                    }`}
                 >
                   {cliente.tipo === "pessoa_fisica" ? "PF" : "PJ"}
                 </span>
@@ -146,18 +141,14 @@ export default function ClientePerfilPage() {
             </div>
           </div>
           <div className="lg:col-span-2">
-            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-4">
                 <p className="text-2xl font-bold text-white">{totalOS}</p>
                 <p className="text-xs text-[#9CA3AF]">Total OS</p>
               </div>
               <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-4">
-                <p className="text-2xl font-bold text-[#F59E0B]">{osAbertas}</p>
-                <p className="text-xs text-[#9CA3AF]">OS em aberto</p>
-              </div>
-              <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-4">
                 <p className="text-sm font-medium text-white">
-                  {ultimaOS ? formatDate(ultimaOS.data_abertura) : "—"}
+                  {ultimaOS ? formatDate(ultimaOS.data_os) : "—"}
                 </p>
                 <p className="text-xs text-[#9CA3AF]">Última manutenção</p>
               </div>
@@ -172,22 +163,20 @@ export default function ClientePerfilPage() {
                 <button
                   type="button"
                   onClick={() => setAba("os")}
-                  className={`px-4 py-3 text-sm font-medium ${
-                    aba === "os"
+                  className={`px-4 py-3 text-sm font-medium ${aba === "os"
                       ? "border-b-2 border-[#CC0000] text-white"
                       : "text-[#9CA3AF] hover:text-white"
-                  }`}
+                    }`}
                 >
                   Ordens de Serviço
                 </button>
                 <button
                   type="button"
                   onClick={() => setAba("orcamentos")}
-                  className={`px-4 py-3 text-sm font-medium ${
-                    aba === "orcamentos"
+                  className={`px-4 py-3 text-sm font-medium ${aba === "orcamentos"
                       ? "border-b-2 border-[#CC0000] text-white"
                       : "text-[#9CA3AF] hover:text-white"
-                  }`}
+                    }`}
                 >
                   Orçamentos
                 </button>
@@ -211,15 +200,14 @@ export default function ClientePerfilPage() {
                               OS-{String(o.numero_os).padStart(4, "0")}
                             </span>{" "}
                             <span
-                              className={`rounded px-2 py-0.5 text-xs ${
-                                STATUS_OS_COLORS[o.status] ?? "bg-[#1E1E1E]"
-                              }`}
+                              className={`rounded px-2 py-0.5 text-xs ${IMAGEM_OS_COLORS[o.imagem_os_status] ?? "bg-[#1E1E1E] text-[#9CA3AF]"
+                                }`}
                             >
-                              {o.status.replace("_", " ")}
+                              {o.imagem_os_status}
                             </span>
                           </div>
                           <div className="text-right text-sm text-[#9CA3AF]">
-                            {formatDate(o.data_abertura)} — {formatCurrency(o.valor_total ?? 0)}
+                            {formatDate(o.data_os)} — {formatCurrency(o.valor_total ?? 0)}
                           </div>
                         </div>
                       ))
@@ -255,9 +243,8 @@ export default function ClientePerfilPage() {
                               ORC-{String(o.numero_orcamento).padStart(4, "0")}
                             </span>{" "}
                             <span
-                              className={`rounded px-2 py-0.5 text-xs ${
-                                STATUS_ORC_COLORS[o.status] ?? "bg-[#1E1E1E]"
-                              }`}
+                              className={`rounded px-2 py-0.5 text-xs ${STATUS_ORC_COLORS[o.status] ?? "bg-[#1E1E1E]"
+                                }`}
                             >
                               {o.status}
                             </span>

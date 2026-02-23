@@ -65,50 +65,52 @@ export interface CrisTechCliente {
   updated_at?: string;
 }
 
-export type StatusOS =
-  | "aberta"
-  | "em_andamento"
-  | "aguardando_pecas"
-  | "concluida"
-  | "cancelada";
-
-export type TipoOS =
-  | "manutencao"
-  | "venda_equipamento"
-  | "instalacao"
-  | "outros";
-
 export interface CrisTechOS {
   id: string;
   numero_os: number;
-  cliente_id: string;
-  cliente?: CrisTechCliente;
-  tipo: TipoOS;
-  status: StatusOS;
-  data_abertura: string;
-  data_conclusao?: string;
-  descricao_problema?: string;
-  servicos_realizados?: string;
-  pecas_utilizadas?: string;
-  valor_servico: number;
-  valor_pecas: number;
-  valor_total: number;
+  data_os: string;
+
+  // Dados do cliente (inline)
+  cliente_nome: string;
+  cliente_endereco_completo: string;
+  cliente_cidade: string;
+  cliente_estado: string;
+  cliente_cpf_cnpj: string;
+  cliente_email?: string;
+  cliente_telefone?: string;
+
+  // Observações (máx 275 chars)
+  observacoes?: string;
+
+  // Garantia
   garantia_meses: number;
   data_vencimento_garantia?: string;
-  observacoes?: string;
-  tecnico_responsavel?: string;
-  tecnico?: CrisTechUsuario;
+
+  // Valores
+  taxa_visita: number;
+  valor_total: number;
+
+  // Imagem da OS (Renderform)
+  imagem_os_url?: string;
+  imagem_os_status: "pendente" | "gerando" | "concluida" | "erro";
+
+  // Relação
+  materiais?: CrisTechOSMaterial[];
+
+  // Controle
   criado_por?: string;
   created_at: string;
-  fotos?: CrisTechOSFoto[];
+  updated_at: string;
 }
 
-export interface CrisTechOSFoto {
+export interface CrisTechOSMaterial {
   id: string;
   os_id: string;
-  url: string;
-  descricao?: string;
-  tipo: "antes" | "depois" | "equipamento" | "outros";
+  tipo: string;
+  quantidade: number;
+  valor_unitario: number;
+  valor_total: number;
+  ordem: number;
 }
 
 export type StatusOrcamento =

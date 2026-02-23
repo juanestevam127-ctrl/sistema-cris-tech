@@ -1,113 +1,344 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useClientesAll } from "@/hooks/useClientesAll";
-import { useUsuarios } from "@/hooks/useUsuarios";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Input";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import { UploadFotosOS } from "@/components/manutencao/UploadFotosOS";
+import type { CrisTechOS, CrisTechOSMaterial } from "@/types";
+import { format, addMonths } from "date-fns";
+import { Trash2, Plus } from "lucide-react";
+
+// ─── Helpers ────────────────────────────────────────────────
+
+function mascaraCPFCNPJ(valor: string): string {
+  const nums = valor.replace(/\D/g, "");
+  if (nums.length <= 11) {
+    return nums
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return nums
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
+function mascaraTelefone(valor: string): string {
+  const nums = valor.replace(/\D/g, "").slice(0, 11);
+  if (nums.length <= 10) {
+    return nums.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
+  }
+  return nums.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
+}
+
+function mascaraCEP(valor: string): string {
+  const nums = valor.replace(/\D/g, "").slice(0, 8);
+  return nums.replace(/(\d{5})(\d{0,3})/, "$1-$2");
+}
+
+function formatBRL(valor: number): string {
+  return `R$ ${valor.toFixed(2).replace(".", ",")}`;
+}
+
+function parseBRL(valor: string): number {
+  return parseFloat(valor.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+type MaterialRow = {
+  id: string;
+  tipo: string;
+  quantidade: string;
+  valor_unitario: string;
+};
+
+// ─── Renderform ─────────────────────────────────────────────
+
+async function gerarImagemOS(
+  os: CrisTechOS & { materiais?: CrisTechOSMaterial[] }
+) {
+  try {
+    await supabase
+      .from("cris_tech_ordens_servico")
+      .update({ imagem_os_status: "gerando" })
+      .eq("id", os.id);
+
+    const garantiaDias = os.garantia_meses * 30;
+    const materiais = os.materiais || [];
+    const mp = Array.from({ length: 5 }, (_, i) => {
+      const m = materiais[i];
+      return {
+        tipo: m?.tipo || "-",
+        qntd: m ? String(m.quantidade) : "-",
+        valor: m?.valor_total
+          ? `R$ ${m.valor_total.toFixed(2).replace(".", ",")}`
+          : "-",
+      };
+    });
+
+    const renderData: Record<string, string> = {
+      "data.text": format(new Date(os.data_os), "dd/MM/yyyy"),
+      "cliente.text": os.cliente_nome || "-",
+      "cpf_cnpj.text": os.cliente_cpf_cnpj || "-",
+      "endereco.text": os.cliente_endereco_completo || "-",
+      "cidade.text": os.cliente_cidade || "-",
+      "estado.text": os.cliente_estado || "-",
+      "email.text": os.cliente_email || "-",
+      "telefone.text": os.cliente_telefone || "-",
+      "tipo1.text": mp[0].tipo,
+      "qntd1.text": mp[0].qntd,
+      "valor1.text": mp[0].valor,
+      "tipo2.text": mp[1].tipo,
+      "qntd2.text": mp[1].qntd,
+      "valor2.text": mp[1].valor,
+      "tipo3.text": mp[2].tipo,
+      "qntd3.text": mp[2].qntd,
+      "valor3.text": mp[2].valor,
+      "tipo4.text": mp[3].tipo,
+      "qntd4.text": mp[3].qntd,
+      "valor4.text": mp[3].valor,
+      "tipo5.text": mp[4].tipo,
+      "qntd5.text": mp[4].qntd,
+      "valor5.text": mp[4].valor,
+      "observacao.text": os.observacoes || "-",
+      "numero_ordem_servico.text": String(os.numero_os).padStart(4, "0"),
+      "taxa_visita.text":
+        os.taxa_visita > 0
+          ? `R$ ${os.taxa_visita.toFixed(2).replace(".", ",")}`
+          : "-",
+      "valor_total.text": `R$ ${os.valor_total.toFixed(2).replace(".", ",")}`,
+      "garantia.text":
+        garantiaDias > 0
+          ? `Garantia de mão-de-obra: ${garantiaDias} dias`
+          : "-",
+    };
+
+    const response = await fetch("https://get.renderform.io/api/v2/render", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": "key-zEze7Eo2dJ3RBLiRtni2z2ANGM5GlHTqW6",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        template: "eager-sheep-bake-madly-1383",
+        data: renderData,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.href) {
+      await supabase
+        .from("cris_tech_ordens_servico")
+        .update({
+          imagem_os_url: result.href,
+          imagem_os_status: "concluida",
+        })
+        .eq("id", os.id);
+      toast.success("✅ Imagem da OS gerada com sucesso!");
+    } else {
+      throw new Error("URL não retornada");
+    }
+  } catch (error) {
+    await supabase
+      .from("cris_tech_ordens_servico")
+      .update({ imagem_os_status: "erro" })
+      .eq("id", os.id);
+    toast.error("❌ Erro ao gerar imagem da OS");
+    console.error("Renderform error:", error);
+  }
+}
+
+// ─── Componente Principal ────────────────────────────────────
 
 function NovaOSForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const clientePreSelect = searchParams.get("cliente");
   const { usuario } = useAuth();
-  const { clientes } = useClientesAll();
-  const { usuarios } = useUsuarios();
-  const [clienteId, setClienteId] = useState("");
-  const [tipo, setTipo] = useState("manutencao");
-  const [status, setStatus] = useState("aberta");
-  const [dataAbertura, setDataAbertura] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [dataConclusao, setDataConclusao] = useState("");
-  const [descricaoProblema, setDescricaoProblema] = useState("");
-  const [servicosRealizados, setServicosRealizados] = useState("");
-  const [pecasUtilizadas, setPecasUtilizadas] = useState("");
-  const [valorServico, setValorServico] = useState("");
-  const [valorPecas, setValorPecas] = useState("");
-  const [garantiaMeses, setGarantiaMeses] = useState("0");
+
+  // Campos gerais
+  const hoje = new Date().toISOString().split("T")[0];
+  const [dataOs, setDataOs] = useState(hoje);
+
+  // Dados do cliente
+  const [clienteNome, setClienteNome] = useState("");
+  const [cpfCnpj, setCpfCnpj] = useState("");
+  const [cep, setCep] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+
+  // Materiais
+  const [materiais, setMateriais] = useState<MaterialRow[]>([
+    { id: crypto.randomUUID(), tipo: "", quantidade: "1", valor_unitario: "" },
+  ]);
+
+  // Observações
   const [observacoes, setObservacoes] = useState("");
-  const [tecnicoId, setTecnicoId] = useState("");
-  const [fotosUrls, setFotosUrls] = useState<string[]>([]);
+
+  // Garantia e valores
+  const [garantiaMeses, setGarantiaMeses] = useState("0");
+  const [taxaVisita, setTaxaVisita] = useState("");
+
   const [salvando, setSalvando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
-  useEffect(() => {
-    if (clientePreSelect) setClienteId(clientePreSelect);
-  }, [clientePreSelect]);
+  // ─── Busca CEP ──────────────────────────────────────────
+  const buscarCep = async () => {
+    const cepLimpo = cep.replace(/\D/g, "");
+    if (cepLimpo.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setCidade(data.localidade || "");
+        setEstado(data.uf || "");
+      } else {
+        toast.error("CEP não encontrado.");
+      }
+    } catch {
+      toast.error("Erro ao buscar CEP.");
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
 
-  const valorS = parseFloat(valorServico.replace(",", ".")) || 0;
-  const valorP = parseFloat(valorPecas.replace(",", ".")) || 0;
-  const total = valorS + valorP;
+  // ─── Cálculos ───────────────────────────────────────────
+  const calcularLinha = (m: MaterialRow) => {
+    const q = parseFloat(m.quantidade) || 0;
+    const v = parseBRL(m.valor_unitario);
+    return q * v;
+  };
 
+  const somaMateirais = materiais.reduce(
+    (acc, m) => acc + calcularLinha(m),
+    0
+  );
+  const taxaV = parseBRL(taxaVisita);
+  const totalOS = somaMateirais + taxaV;
+
+  const vencimentoGarantia = () => {
+    const meses = parseInt(garantiaMeses, 10) || 0;
+    if (meses <= 0 || !dataOs) return null;
+    return addMonths(new Date(dataOs), meses);
+  };
+
+  // ─── Handlers Materiais ─────────────────────────────────
+  const adicionarMaterial = () => {
+    if (materiais.length >= 5) return;
+    setMateriais([
+      ...materiais,
+      { id: crypto.randomUUID(), tipo: "", quantidade: "1", valor_unitario: "" },
+    ]);
+  };
+
+  const removerMaterial = (id: string) => {
+    if (materiais.length <= 1) return;
+    setMateriais(materiais.filter((m) => m.id !== id));
+  };
+
+  const updateMaterial = (
+    id: string,
+    campo: keyof MaterialRow,
+    valor: string
+  ) => {
+    setMateriais(materiais.map((m) => (m.id === id ? { ...m, [campo]: valor } : m)));
+  };
+
+  // ─── Salvar ─────────────────────────────────────────────
   const salvar = async () => {
-    if (!clienteId) {
-      toast.error("Selecione o cliente.");
+    if (!clienteNome.trim()) {
+      toast.error("Informe o nome do cliente.");
       return;
     }
-    if (!servicosRealizados.trim()) {
-      toast.error("Descreva o que foi feito.");
+    if (!cpfCnpj.trim()) {
+      toast.error("Informe CPF/CNPJ do cliente.");
       return;
     }
+    if (!endereco.trim()) {
+      toast.error("Informe o endereço completo.");
+      return;
+    }
+    if (!cidade.trim() || !estado.trim()) {
+      toast.error("Informe a cidade e o estado.");
+      return;
+    }
+    const materiaisValidos = materiais.filter(
+      (m) => m.tipo.trim() && parseFloat(m.quantidade) > 0
+    );
+    if (materiaisValidos.length === 0) {
+      toast.error("Adicione pelo menos um material.");
+      return;
+    }
+
     setSalvando(true);
     try {
-      const { data, error } = await supabase
+      const { data: osData, error: osError } = await supabase
         .from("cris_tech_ordens_servico")
         .insert({
-          cliente_id: clienteId,
-          tipo,
-          status,
-          data_abertura: dataAbertura,
-          data_conclusao: status === "concluida" ? dataConclusao || null : null,
-          descricao_problema: descricaoProblema || null,
-          servicos_realizados: servicosRealizados,
-          pecas_utilizadas: pecasUtilizadas || null,
-          valor_servico: valorS,
-          valor_pecas: valorP,
-          valor_total: total,
+          data_os: dataOs,
+          cliente_nome: clienteNome.trim(),
+          cliente_endereco_completo: endereco.trim(),
+          cliente_cidade: cidade.trim(),
+          cliente_estado: estado.trim(),
+          cliente_cpf_cnpj: cpfCnpj,
+          cliente_email: email.trim() || null,
+          cliente_telefone: telefone || null,
+          observacoes: observacoes.trim() || null,
           garantia_meses: parseInt(garantiaMeses, 10) || 0,
-          data_vencimento_garantia:
-            status === "concluida" && parseInt(garantiaMeses, 10) > 0 && dataConclusao
-              ? new Date(
-                new Date(dataConclusao).getTime() +
-                parseInt(garantiaMeses, 10) * 30 * 24 * 60 * 60 * 1000
-              )
-                .toISOString()
-                .split("T")[0]
-              : null,
-          observacoes: observacoes || null,
-          tecnico_responsavel: tecnicoId || null,
+          taxa_visita: taxaV,
           criado_por: usuario?.id,
         })
-        .select("id")
+        .select("id, numero_os")
         .single();
-      if (error) throw error;
 
-      const osId = (data as { id: string }).id;
+      if (osError) throw osError;
+      const osId = (osData as { id: string; numero_os: number }).id;
+      const numeroOs = (osData as { id: string; numero_os: number }).numero_os;
 
-      // Inserir as fotos se existirem
-      if (fotosUrls.length > 0) {
-        const { error: fotosError } = await supabase
-          .from("cris_tech_os_fotos")
-          .insert(
-            fotosUrls.map(url => ({
-              os_id: osId,
-              url,
-              tipo: "equipamento"
-            }))
-          );
-        if (fotosError) {
-          console.error("Erro ao salvar fotos:", fotosError);
-          toast.error("OS criada, mas houve erro ao salvar as fotos.");
-        }
+      // Inserir materiais
+      const materiaisInsert = materiaisValidos.map((m, i) => ({
+        os_id: osId,
+        tipo: m.tipo.trim(),
+        quantidade: parseFloat(m.quantidade) || 1,
+        valor_unitario: parseBRL(m.valor_unitario),
+        ordem: i + 1,
+      }));
+
+      if (materiaisInsert.length > 0) {
+        const { error: matError } = await supabase
+          .from("cris_tech_os_materiais")
+          .insert(materiaisInsert);
+        if (matError) throw matError;
       }
 
-      toast.success("OS criada!");
+      toast.success("OS criada com sucesso!");
+
+      // Buscar OS completa com materiais para Renderform
+      const { data: osCompleta } = await supabase
+        .from("cris_tech_ordens_servico")
+        .select("*, cris_tech_os_materiais(*)")
+        .eq("id", osId)
+        .single();
+
+      if (osCompleta) {
+        const osForRender = {
+          ...osCompleta,
+          materiais: (osCompleta as Record<string, unknown>)[
+            "cris_tech_os_materiais"
+          ] as CrisTechOSMaterial[],
+        } as CrisTechOS & { materiais: CrisTechOSMaterial[] };
+
+        // Chamar Renderform em background
+        gerarImagemOS(osForRender);
+      }
+
       router.push(`/ordens-de-servico/${osId}`);
     } catch (e) {
       console.error(e);
@@ -117,105 +348,330 @@ function NovaOSForm() {
     }
   };
 
+  const venc = vencimentoGarantia();
+  const labelInput =
+    "mb-1 block text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]";
+  const inputClass =
+    "w-full rounded-lg border border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-[#4B5563] focus:outline-none focus:ring-2 focus:ring-[#CC0000]";
+  const sectionTitle =
+    "text-xs font-bold uppercase tracking-widest text-[#CC0000] mb-4 flex items-center gap-2";
+
   return (
     <AppLayout>
-      <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-2xl font-bold text-white">Nova Ordem de Serviço</h1>
-        <div className="space-y-4 rounded-lg border border-[#1E1E1E] bg-[#111111] p-6">
+      <div className="mx-auto max-w-4xl space-y-6 pb-12">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">CLIENTE *</label>
-            <select
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-white"
-            >
-              <option value="">Selecione...</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
-              ))}
-            </select>
+            <h1 className="text-2xl font-bold text-white">Nova Ordem de Serviço</h1>
+            <p className="text-sm text-[#9CA3AF]">Preencha os dados abaixo</p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="text-right">
+            <p className="text-xs text-[#6B7280] uppercase tracking-wider">Nº OS</p>
+            <p className="text-2xl font-bold text-[#CC0000]">—</p>
+          </div>
+        </div>
+
+        {/* Data */}
+        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
+          <div className="max-w-xs">
+            <label className={labelInput}>Data da OS *</label>
+            <input
+              type="date"
+              value={dataOs}
+              onChange={(e) => setDataOs(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* Dados do Cliente */}
+        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
+          <div className={sectionTitle}>
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
+            Dados do Cliente
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className={labelInput}>Nome Completo *</label>
+              <input
+                type="text"
+                value={clienteNome}
+                onChange={(e) => setClienteNome(e.target.value)}
+                placeholder="Nome do cliente"
+                className={inputClass}
+              />
+            </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">TIPO</label>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-white">
-                <option value="manutencao">Manutenção</option>
-                <option value="venda_equipamento">Venda de Equipamento</option>
-                <option value="instalacao">Instalação</option>
-                <option value="outros">Outros</option>
+              <label className={labelInput}>CPF / CNPJ *</label>
+              <input
+                type="text"
+                value={cpfCnpj}
+                onChange={(e) =>
+                  setCpfCnpj(mascaraCPFCNPJ(e.target.value))
+                }
+                placeholder="000.000.000-00"
+                maxLength={18}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelInput}>CEP</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={cep}
+                  onChange={(e) => setCep(mascaraCEP(e.target.value))}
+                  onBlur={buscarCep}
+                  placeholder="00000-000"
+                  maxLength={9}
+                  className={inputClass}
+                />
+                {buscandoCep && (
+                  <div className="flex items-center px-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelInput}>Endereço Completo *</label>
+              <input
+                type="text"
+                value={endereco}
+                onChange={(e) => setEndereco(e.target.value)}
+                placeholder="Rua, Número, Complemento, Bairro"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelInput}>Cidade *</label>
+              <input
+                type="text"
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+                placeholder="Cidade"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelInput}>Estado *</label>
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Selecione...</option>
+                {["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"].map(
+                  (uf) => (
+                    <option key={uf} value={uf}>
+                      {uf}
+                    </option>
+                  )
+                )}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">STATUS</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-white">
-                <option value="aberta">Aberta</option>
-                <option value="em_andamento">Em Andamento</option>
-                <option value="aguardando_pecas">Aguardando Peças</option>
-                <option value="concluida">Concluída</option>
-                <option value="cancelada">Cancelada</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">DATA ABERTURA *</label>
-              <Input type="date" value={dataAbertura} onChange={(e) => setDataAbertura(e.target.value)} />
+              <label className={labelInput}>E-mail</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@exemplo.com"
+                className={inputClass}
+              />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">DATA CONCLUSÃO</label>
-              <Input type="date" value={dataConclusao} onChange={(e) => setDataConclusao(e.target.value)} disabled={status !== "concluida"} />
+              <label className={labelInput}>Telefone</label>
+              <input
+                type="text"
+                value={telefone}
+                onChange={(e) => setTelefone(mascaraTelefone(e.target.value))}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                className={inputClass}
+              />
             </div>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">TÉCNICO</label>
-            <select value={tecnicoId} onChange={(e) => setTecnicoId(e.target.value)} className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-white">
-              <option value="">—</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>{u.nome || u.email}</option>
-              ))}
-            </select>
+        </div>
+
+        {/* Materiais */}
+        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
+          <div className={sectionTitle}>
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
+            Materiais Utilizados
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">PROBLEMA RELATADO</label>
-            <Textarea value={descricaoProblema} onChange={(e) => setDescricaoProblema(e.target.value)} rows={3} />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] text-sm">
+              <thead>
+                <tr className="border-b border-[#1E1E1E]">
+                  <th className="pb-2 text-left text-xs text-[#6B7280] w-6">#</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280]">Tipo / Descrição *</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280] w-24">Qtd *</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280] w-36">Valor Unit. (R$) *</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280] w-32">Total (R$)</th>
+                  <th className="pb-2 w-8" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1A1A1A]">
+                {materiais.map((m, idx) => {
+                  const total = calcularLinha(m);
+                  return (
+                    <tr key={m.id}>
+                      <td className="py-2 pr-2 text-[#6B7280]">{idx + 1}</td>
+                      <td className="py-2 pr-2">
+                        <input
+                          type="text"
+                          value={m.tipo}
+                          onChange={(e) =>
+                            updateMaterial(m.id, "tipo", e.target.value)
+                          }
+                          placeholder="Descrição do material"
+                          className={inputClass}
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={m.quantidade}
+                          onChange={(e) =>
+                            updateMaterial(m.id, "quantidade", e.target.value)
+                          }
+                          className={inputClass}
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          type="text"
+                          value={m.valor_unitario}
+                          onChange={(e) =>
+                            updateMaterial(
+                              m.id,
+                              "valor_unitario",
+                              e.target.value
+                            )
+                          }
+                          placeholder="0,00"
+                          className={inputClass}
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <div className="rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-3 py-2 text-sm text-white">
+                          {formatBRL(total)}
+                        </div>
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => removerMaterial(m.id)}
+                          disabled={materiais.length <= 1}
+                          className="rounded p-1 text-[#6B7280] hover:bg-red-900/20 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">O QUE FOI FEITO *</label>
-            <Textarea value={servicosRealizados} onChange={(e) => setServicosRealizados(e.target.value)} rows={3} />
+          <button
+            type="button"
+            onClick={adicionarMaterial}
+            disabled={materiais.length >= 5}
+            className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-[#2A2A2A] px-4 py-2 text-sm text-[#9CA3AF] transition hover:border-[#CC0000] hover:text-[#CC0000] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Plus size={14} />
+            Adicionar Material ({materiais.length}/5)
+          </button>
+        </div>
+
+        {/* Observações */}
+        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
+          <div className={sectionTitle}>
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
+            Observações
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">PEÇAS / EQUIPAMENTOS</label>
-            <Textarea value={pecasUtilizadas} onChange={(e) => setPecasUtilizadas(e.target.value)} rows={2} />
+          <label className={labelInput}>Observações</label>
+          <textarea
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+            maxLength={275}
+            rows={4}
+            placeholder="Observações adicionais..."
+            className={`${inputClass} resize-none`}
+          />
+          <p className="mt-1 text-right text-xs text-[#6B7280]">
+            <span className={observacoes.length >= 275 ? "text-red-400" : ""}>
+              {observacoes.length}
+            </span>
+            /275 caracteres
+          </p>
+        </div>
+
+        {/* Garantia e Valores */}
+        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
+          <div className={sectionTitle}>
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
+            Garantia & Valores
+            <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">VALOR SERVIÇO (R$)</label>
-              <Input value={valorServico} onChange={(e) => setValorServico(e.target.value)} placeholder="0,00" />
+              <label className={labelInput}>Garantia (Meses)</label>
+              <input
+                type="number"
+                min="0"
+                value={garantiaMeses}
+                onChange={(e) => setGarantiaMeses(e.target.value)}
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-[#6B7280]">
+                {venc
+                  ? `Vence em: ${format(venc, "dd/MM/yyyy")}`
+                  : "Sem garantia"}
+              </p>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">VALOR PEÇAS (R$)</label>
-              <Input value={valorPecas} onChange={(e) => setValorPecas(e.target.value)} placeholder="0,00" />
+              <label className={labelInput}>Taxa de Visita (R$)</label>
+              <input
+                type="text"
+                value={taxaVisita}
+                onChange={(e) => setTaxaVisita(e.target.value)}
+                placeholder="0,00"
+                className={inputClass}
+              />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">TOTAL</label>
-              <Input value={total.toFixed(2)} readOnly className="bg-[#1E1E1E]" />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">GARANTIA (MESES)</label>
-            <Input type="number" min={0} value={garantiaMeses} onChange={(e) => setGarantiaMeses(e.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">OBSERVAÇÕES</label>
-            <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={2} />
           </div>
 
-          <UploadFotosOS onFotosChange={setFotosUrls} />
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
-            <Button variant="primary" onClick={salvar} loading={salvando}>Salvar OS</Button>
+          {/* Total */}
+          <div className="mt-6 rounded-xl border border-[#CC0000]/30 bg-[#CC0000]/5 p-4">
+            <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-1">Total da OS</p>
+            <p className="text-4xl font-bold text-[#CC0000]">
+              {totalOS.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+            <p className="mt-1 text-xs text-[#6B7280]">
+              Materiais: {formatBRL(somaMateirais)} + Taxa Visita: {formatBRL(taxaV)}
+            </p>
           </div>
+        </div>
+
+        {/* Ações */}
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" onClick={() => router.back()}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={salvar} loading={salvando}>
+            Salvar Ordem de Serviço
+          </Button>
         </div>
       </div>
     </AppLayout>
@@ -224,13 +680,15 @@ function NovaOSForm() {
 
 export default function NovaOSPage() {
   return (
-    <Suspense fallback={
-      <AppLayout>
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
-        </div>
-      </AppLayout>
-    }>
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
+          </div>
+        </AppLayout>
+      }
+    >
       <NovaOSForm />
     </Suspense>
   );

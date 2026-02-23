@@ -36,7 +36,7 @@ async function gerarImagemOS(
     });
 
     const renderData: Record<string, string> = {
-      "data.text": format(new Date(os.data_os), "dd/MM/yyyy"),
+      "data.text": format(new Date(os.data_os + "T12:00:00"), "dd/MM/yyyy"),
       "cliente.text": os.cliente_nome || "-",
       "cpf_cnpj.text": os.cliente_cpf_cnpj || "-",
       "endereco.text": os.cliente_endereco_completo || "-",
@@ -70,6 +70,7 @@ async function gerarImagemOS(
         garantiaDias > 0
           ? `Garantia de mão-de-obra: ${garantiaDias} dias`
           : "-",
+      "nome_cliente_assinatura.text": os.cliente_nome || "-",
     };
 
     const response = await fetch("https://get.renderform.io/api/v2/render", {

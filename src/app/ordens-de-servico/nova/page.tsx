@@ -7,9 +7,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import type { CrisTechOS, CrisTechOSMaterial } from "@/types";
+import type { CrisTechOS, CrisTechOSMaterial, CrisTechCliente } from "@/types";
 import { format, addMonths } from "date-fns";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Search, User } from "lucide-react";
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -46,7 +46,8 @@ function formatBRL(valor: number): string {
 }
 
 function parseBRL(valor: string): number {
-  return parseFloat(valor.replace(/\./g, "").replace(",", ".")) || 0;
+  const limpo = valor.replace(/R\$\s?/, "").replace(/\./g, "").replace(",", ".");
+  return parseFloat(limpo) || 0;
 }
 
 type MaterialRow = {
@@ -81,7 +82,7 @@ async function gerarImagemOS(
     });
 
     const renderData: Record<string, string> = {
-      "data.text": format(new Date(os.data_os), "dd/MM/yyyy"),
+      "data.text": format(new Date(os.data_os + "T12:00:00"), "dd/MM/yyyy"),
       "cliente.text": os.cliente_nome || "-",
       "cpf_cnpj.text": os.cliente_cpf_cnpj || "-",
       "endereco.text": os.cliente_endereco_completo || "-",
@@ -115,6 +116,7 @@ async function gerarImagemOS(
         garantiaDias > 0
           ? `Garantia de mão-de-obra: ${garantiaDias} dias`
           : "-",
+      "nome_cliente_assinatura.text": os.cliente_nome || "-",
     };
 
     const response = await fetch("https://get.renderform.io/api/v2/render", {
@@ -159,11 +161,16 @@ function NovaOSForm() {
   const router = useRouter();
   const { usuario } = useAuth();
 
+  // Clientes para seleção
+  const [clientes, setClientes] = useState<CrisTechCliente[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+
   // Campos gerais
   const hoje = new Date().toISOString().split("T")[0];
   const [dataOs, setDataOs] = useState(hoje);
 
   // Dados do cliente
+  const [clienteId, setClienteId] = useState("");
   const [clienteNome, setClienteNome] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
   const [cep, setCep] = useState("");
@@ -187,6 +194,44 @@ function NovaOSForm() {
 
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
+
+  // ─── Carregar Clientes ──────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("cris_tech_clientes")
+        .select("*")
+        .order("nome");
+      if (data) setClientes(data as CrisTechCliente[]);
+      setLoadingClientes(false);
+    };
+    load();
+  }, []);
+
+  // ─── Seleção de Cliente ─────────────────────────────────
+  const handleSelectCliente = (id: string) => {
+    setClienteId(id);
+    const c = clientes.find((item) => item.id === id);
+    if (c) {
+      setClienteNome(c.nome);
+      setCpfCnpj(c.cpf_cnpj || "");
+      setCep(c.cep || "");
+      setEndereco(`${c.endereco || ""}${c.numero ? `, ${c.numero}` : ""}${c.complemento ? ` - ${c.complemento}` : ""}${c.bairro ? ` - ${c.bairro}` : ""}`);
+      setCidade(c.cidade || "");
+      setEstado(c.estado || "");
+      setEmail(c.email || "");
+      setTelefone(c.celular || c.telefone || "");
+    } else {
+      setClienteNome("");
+      setCpfCnpj("");
+      setCep("");
+      setEndereco("");
+      setCidade("");
+      setEstado("");
+      setEmail("");
+      setTelefone("");
+    }
+  };
 
   // ─── Busca CEP ──────────────────────────────────────────
   const buscarCep = async () => {
@@ -226,7 +271,7 @@ function NovaOSForm() {
   const vencimentoGarantia = () => {
     const meses = parseInt(garantiaMeses, 10) || 0;
     if (meses <= 0 || !dataOs) return null;
-    return addMonths(new Date(dataOs), meses);
+    return addMonths(new Date(dataOs + "T12:00:00"), meses);
   };
 
   // ─── Handlers Materiais ─────────────────────────────────
@@ -253,6 +298,10 @@ function NovaOSForm() {
 
   // ─── Salvar ─────────────────────────────────────────────
   const salvar = async () => {
+    if (!clienteId) {
+      toast.error("Selecione um cliente.");
+      return;
+    }
     if (!clienteNome.trim()) {
       toast.error("Informe o nome do cliente.");
       return;
@@ -283,6 +332,7 @@ function NovaOSForm() {
         .from("cris_tech_ordens_servico")
         .insert({
           data_os: dataOs,
+          cliente_id: clienteId,
           cliente_nome: clienteNome.trim(),
           cliente_endereco_completo: endereco.trim(),
           cliente_cidade: cidade.trim(),
@@ -300,7 +350,6 @@ function NovaOSForm() {
 
       if (osError) throw osError;
       const osId = (osData as { id: string; numero_os: number }).id;
-      const numeroOs = (osData as { id: string; numero_os: number }).numero_os;
 
       // Inserir materiais
       const materiaisInsert = materiaisValidos.map((m, i) => ({
@@ -391,9 +440,35 @@ function NovaOSForm() {
             Dados do Cliente
             <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+
+          <div className="mb-6 rounded-lg bg-[#0A0A0A] p-4 border border-[#1E1E1E]">
+            <label className={labelInput}>Selecionar Cliente *</label>
+            <div className="relative">
+              <select
+                value={clienteId}
+                onChange={(e) => handleSelectCliente(e.target.value)}
+                className={`${inputClass} appearance-none pr-10`}
+                disabled={loadingClientes}
+              >
+                <option value="">Selecione um cliente...</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome} ({c.cpf_cnpj ? formatCpfCnpjLocal(c.cpf_cnpj) : "Sem documento"})
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#9CA3AF]">
+                <Search size={16} />
+              </div>
+            </div>
+            {loadingClientes && (
+              <p className="mt-2 text-xs text-[#6B7280] animate-pulse">Carregando base de clientes...</p>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 opacity-90">
             <div className="sm:col-span-2">
-              <label className={labelInput}>Nome Completo *</label>
+              <label className={labelInput}>Nome Completo / Snapshot *</label>
               <input
                 type="text"
                 value={clienteNome}
@@ -676,6 +751,21 @@ function NovaOSForm() {
       </div>
     </AppLayout>
   );
+}
+
+function formatCpfCnpjLocal(valor: string): string {
+  const nums = valor.replace(/\D/g, "");
+  if (nums.length <= 11) {
+    return nums
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return nums
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
 
 export default function NovaOSPage() {

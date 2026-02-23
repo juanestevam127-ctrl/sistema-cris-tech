@@ -1,15 +1,15 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
-import type { CrisTechOSMaterial } from "@/types";
+import type { CrisTechOS, CrisTechOSMaterial, CrisTechCliente } from "@/types";
 import { format, addMonths } from "date-fns";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Search, ChevronLeft } from "lucide-react";
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -46,12 +46,14 @@ function formatBRL(valor: number): string {
 }
 
 function parseBRL(valor: string): number {
-  return parseFloat(valor.replace(/\./g, "").replace(",", ".")) || 0;
+  if (typeof valor !== "string") return valor || 0;
+  const limpo = valor.replace(/R\$\s?/, "").replace(/\./g, "").replace(",", ".");
+  return parseFloat(limpo) || 0;
 }
 
 type MaterialRow = {
-  id: string;
-  dbId?: string;
+  id: string; // temp UUID for keying
+  db_id?: string; // actual UUID if exists
   tipo: string;
   quantidade: string;
   valor_unitario: string;
@@ -59,17 +61,24 @@ type MaterialRow = {
 
 // ─── Componente Principal ────────────────────────────────────
 
-export default function EditarOSPage() {
-  const params = useParams();
+function EditarOSForm() {
   const router = useRouter();
-  const id = params.id as string;
+  const { id } = useParams();
   const { usuario } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [numeroOs, setNumeroOs] = useState<number | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
-  // Campos
+  // Clientes para seleção
+  const [clientes, setClientes] = useState<CrisTechCliente[]>([]);
+
+  // Campos gerais
+  const [numeroOs, setNumeroOs] = useState<number | null>(null);
   const [dataOs, setDataOs] = useState("");
+
+  // Dados do cliente
+  const [clienteId, setClienteId] = useState("");
   const [clienteNome, setClienteNome] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
   const [cep, setCep] = useState("");
@@ -78,66 +87,94 @@ export default function EditarOSPage() {
   const [estado, setEstado] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [materiais, setMateriais] = useState<MaterialRow[]>([
-    { id: crypto.randomUUID(), tipo: "", quantidade: "1", valor_unitario: "" },
-  ]);
+
+  // Materiais
+  const [materiais, setMateriais] = useState<MaterialRow[]>([]);
+
+  // Observações
   const [observacoes, setObservacoes] = useState("");
+
+  // Garantia e valores
   const [garantiaMeses, setGarantiaMeses] = useState("0");
   const [taxaVisita, setTaxaVisita] = useState("");
-  const [salvando, setSalvando] = useState(false);
-  const [buscandoCep, setBuscandoCep] = useState(false);
 
+  // ─── Carregar Dados ─────────────────────────────────────
   useEffect(() => {
-    const load = async () => {
-      const { data: osData } = await supabase
-        .from("cris_tech_ordens_servico")
-        .select("*")
-        .eq("id", id)
-        .single();
+    const fetchData = async () => {
+      try {
+        // Carregar clientes
+        const { data: cData } = await supabase
+          .from("cris_tech_clientes")
+          .select("*")
+          .order("nome");
+        if (cData) setClientes(cData as CrisTechCliente[]);
 
-      const { data: matData } = await supabase
-        .from("cris_tech_os_materiais")
-        .select("*")
-        .eq("os_id", id)
-        .order("ordem");
+        // Carregar OS
+        const { data, error } = await supabase
+          .from("cris_tech_ordens_servico")
+          .select("*, cris_tech_os_materiais(*)")
+          .eq("id", id)
+          .single();
 
-      if (osData) {
-        const o = osData as Record<string, unknown>;
-        setNumeroOs(o.numero_os as number);
-        setDataOs((o.data_os as string)?.split("T")[0] ?? "");
-        setClienteNome((o.cliente_nome as string) ?? "");
-        setCpfCnpj((o.cliente_cpf_cnpj as string) ?? "");
-        setEndereco((o.cliente_endereco_completo as string) ?? "");
-        setCidade((o.cliente_cidade as string) ?? "");
-        setEstado((o.cliente_estado as string) ?? "");
-        setEmail((o.cliente_email as string) ?? "");
-        setTelefone((o.cliente_telefone as string) ?? "");
-        setObservacoes((o.observacoes as string) ?? "");
-        setGarantiaMeses(String(o.garantia_meses ?? 0));
-        setTaxaVisita(
-          o.taxa_visita ? String(o.taxa_visita).replace(".", ",") : ""
-        );
+        if (error) throw error;
+        if (data) {
+          const os = data as CrisTechOS & {
+            cris_tech_os_materiais: CrisTechOSMaterial[];
+          };
+          setNumeroOs(os.numero_os);
+          setDataOs(os.data_os);
+          setClienteId(os.cliente_id || "");
+          setClienteNome(os.cliente_nome);
+          setCpfCnpj(os.cliente_cpf_cnpj);
+          setCep(os.cliente_endereco_completo.match(/\d{5}-\d{3}/)?.[0] || "");
+          setEndereco(os.cliente_endereco_completo);
+          setCidade(os.cliente_cidade);
+          setEstado(os.cliente_estado);
+          setEmail(os.cliente_email || "");
+          setTelefone(os.cliente_telefone || "");
+          setObservacoes(os.observacoes || "");
+          setGarantiaMeses(String(os.garantia_meses));
+          setTaxaVisita(os.taxa_visita.toFixed(2).replace(".", ","));
+
+          const mats: MaterialRow[] = os.cris_tech_os_materiais
+            .sort((a, b) => a.ordem - b.ordem)
+            .map((m) => ({
+              id: m.id,
+              db_id: m.id,
+              tipo: m.tipo,
+              quantidade: String(m.quantidade),
+              valor_unitario: m.valor_unitario.toFixed(2).replace(".", ","),
+            }));
+          setMateriais(mats);
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error("Erro ao carregar OS.");
+        router.push("/ordens-de-servico");
+      } finally {
+        setLoading(false);
       }
-
-      if (matData && matData.length > 0) {
-        setMateriais(
-          (matData as CrisTechOSMaterial[]).map((m) => ({
-            id: crypto.randomUUID(),
-            dbId: m.id,
-            tipo: m.tipo,
-            quantidade: String(m.quantidade),
-            valor_unitario: m.valor_unitario
-              .toFixed(2)
-              .replace(".", ","),
-          }))
-        );
-      }
-
-      setLoading(false);
     };
-    load();
-  }, [id]);
+    fetchData();
+  }, [id, router]);
 
+  // ─── Seleção de Cliente ─────────────────────────────────
+  const handleSelectCliente = (id: string) => {
+    setClienteId(id);
+    const c = clientes.find((item) => item.id === id);
+    if (c) {
+      setClienteNome(c.nome);
+      setCpfCnpj(c.cpf_cnpj || "");
+      setCep(c.cep || "");
+      setEndereco(`${c.endereco || ""}${c.numero ? `, ${c.numero}` : ""}${c.complemento ? ` - ${c.complemento}` : ""}${c.bairro ? ` - ${c.bairro}` : ""}`);
+      setCidade(c.cidade || "");
+      setEstado(c.estado || "");
+      setEmail(c.email || "");
+      setTelefone(c.celular || c.telefone || "");
+    }
+  };
+
+  // ─── Busca CEP ──────────────────────────────────────────
   const buscarCep = async () => {
     const cepLimpo = cep.replace(/\D/g, "");
     if (cepLimpo.length !== 8) return;
@@ -148,8 +185,6 @@ export default function EditarOSPage() {
       if (!data.erro) {
         setCidade(data.localidade || "");
         setEstado(data.uf || "");
-      } else {
-        toast.error("CEP não encontrado.");
       }
     } catch {
       toast.error("Erro ao buscar CEP.");
@@ -158,22 +193,27 @@ export default function EditarOSPage() {
     }
   };
 
+  // ─── Cálculos ───────────────────────────────────────────
   const calcularLinha = (m: MaterialRow) => {
     const q = parseFloat(m.quantidade) || 0;
     const v = parseBRL(m.valor_unitario);
     return q * v;
   };
 
-  const somaMateirais = materiais.reduce((acc, m) => acc + calcularLinha(m), 0);
+  const somaMateirais = materiais.reduce(
+    (acc, m) => acc + calcularLinha(m),
+    0
+  );
   const taxaV = parseBRL(taxaVisita);
   const totalOS = somaMateirais + taxaV;
 
-  const vencimentoGarantia = () => {
+  const venc = (() => {
     const meses = parseInt(garantiaMeses, 10) || 0;
     if (meses <= 0 || !dataOs) return null;
-    return addMonths(new Date(dataOs), meses);
-  };
+    return addMonths(new Date(dataOs + "T12:00:00"), meses);
+  })();
 
+  // ─── Handlers Materiais ─────────────────────────────────
   const adicionarMaterial = () => {
     if (materiais.length >= 5) return;
     setMateriais([
@@ -195,25 +235,21 @@ export default function EditarOSPage() {
     setMateriais(materiais.map((m) => (m.id === id ? { ...m, [campo]: valor } : m)));
   };
 
+  // ─── Salvar ─────────────────────────────────────────────
   const salvar = async () => {
-    if (!clienteNome.trim() || !cpfCnpj.trim() || !endereco.trim() || !cidade.trim() || !estado.trim()) {
-      toast.error("Preencha todos os campos obrigatórios do cliente.");
-      return;
-    }
-    const materiaisValidos = materiais.filter(
-      (m) => m.tipo.trim() && parseFloat(m.quantidade) > 0
-    );
-    if (materiaisValidos.length === 0) {
-      toast.error("Adicione pelo menos um material.");
+    if (!clienteNome.trim() || !cpfCnpj.trim() || !endereco.trim()) {
+      toast.error("Preencha os campos obrigatórios.");
       return;
     }
 
     setSalvando(true);
     try {
+      // 1. Atualizar OS
       const { error: osError } = await supabase
         .from("cris_tech_ordens_servico")
         .update({
           data_os: dataOs,
+          cliente_id: clienteId || null,
           cliente_nome: clienteNome.trim(),
           cliente_endereco_completo: endereco.trim(),
           cliente_cidade: cidade.trim(),
@@ -227,29 +263,38 @@ export default function EditarOSPage() {
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
+
       if (osError) throw osError;
 
-      // Sync materiais: delete all and reinsert
-      await supabase.from("cris_tech_os_materiais").delete().eq("os_id", id);
-      const materiaisInsert = materiaisValidos.map((m, i) => ({
-        os_id: id,
-        tipo: m.tipo.trim(),
-        quantidade: parseFloat(m.quantidade) || 1,
-        valor_unitario: parseBRL(m.valor_unitario),
-        ordem: i + 1,
-      }));
-      if (materiaisInsert.length > 0) {
+      // 2. Sync Materiais (Delete + Re-insert)
+      const { error: delError } = await supabase
+        .from("cris_tech_os_materiais")
+        .delete()
+        .eq("os_id", id);
+      if (delError) throw delError;
+
+      const materiaisValidos = materiais.filter(
+        (m) => m.tipo.trim() && parseFloat(m.quantidade) > 0
+      );
+      if (materiaisValidos.length > 0) {
+        const materiaisInsert = materiaisValidos.map((m, i) => ({
+          os_id: id,
+          tipo: m.tipo.trim(),
+          quantidade: parseFloat(m.quantidade) || 1,
+          valor_unitario: parseBRL(m.valor_unitario),
+          ordem: i + 1,
+        }));
         const { error: matError } = await supabase
           .from("cris_tech_os_materiais")
           .insert(materiaisInsert);
         if (matError) throw matError;
       }
 
-      toast.success("OS atualizada!");
+      toast.success("OS atualizada com sucesso!");
       router.push(`/ordens-de-servico/${id}`);
     } catch (e) {
       console.error(e);
-      toast.error("Erro ao salvar OS.");
+      toast.error("Erro ao salvar alterações.");
     } finally {
       setSalvando(false);
     }
@@ -258,18 +303,18 @@ export default function EditarOSPage() {
   if (loading) {
     return (
       <AppLayout>
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#CC0000] border-t-transparent" />
+          <p className="text-[#9CA3AF] text-sm font-medium">Carregando dados da OS...</p>
         </div>
       </AppLayout>
     );
   }
 
-  const venc = vencimentoGarantia();
   const labelInput =
     "mb-1 block text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]";
   const inputClass =
-    "w-full rounded-lg border border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-sm text-white placeholder-[#4B5563] focus:outline-none focus:ring-2 focus:ring-[#CC0000]";
+    "w-full rounded-lg border border-[#2A2A2A] bg-[#0A0A0A] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000] disabled:opacity-50";
   const sectionTitle =
     "text-xs font-bold uppercase tracking-widest text-[#CC0000] mb-4 flex items-center gap-2";
 
@@ -278,18 +323,24 @@ export default function EditarOSPage() {
       <div className="mx-auto max-w-4xl space-y-6 pb-12">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Editar Ordem de Serviço</h1>
-            <p className="text-sm text-[#9CA3AF]">Altere os dados da OS</p>
-          </div>
-          {numeroOs !== null && (
-            <div className="text-right">
-              <p className="text-xs text-[#6B7280] uppercase tracking-wider">Nº OS</p>
-              <p className="text-2xl font-bold text-[#CC0000]">
-                {String(numeroOs).padStart(4, "0")}
-              </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-2 text-[#9CA3AF] hover:text-white"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Editar OS</h1>
+              <p className="text-sm text-[#9CA3AF]">Atualize os dados da ordem de serviço</p>
             </div>
-          )}
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-[#6B7280] uppercase tracking-wider">Nº OS</p>
+            <p className="text-2xl font-bold text-[#CC0000]">
+              OS-{String(numeroOs).padStart(4, "0")}
+            </p>
+          </div>
         </div>
 
         {/* Data */}
@@ -312,6 +363,28 @@ export default function EditarOSPage() {
             Dados do Cliente
             <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
+
+          <div className="mb-6 rounded-lg bg-[#0A0A0A] p-4 border border-[#1E1E1E]">
+            <label className={labelInput}>Alterar Cliente</label>
+            <div className="relative">
+              <select
+                value={clienteId}
+                onChange={(e) => handleSelectCliente(e.target.value)}
+                className={`${inputClass} appearance-none pr-10`}
+              >
+                <option value="">Outro cliente (manual)...</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#9CA3AF]">
+                <Search size={16} />
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={labelInput}>Nome Completo *</label>
@@ -327,7 +400,9 @@ export default function EditarOSPage() {
               <input
                 type="text"
                 value={cpfCnpj}
-                onChange={(e) => setCpfCnpj(mascaraCPFCNPJ(e.target.value))}
+                onChange={(e) =>
+                  setCpfCnpj(mascaraCPFCNPJ(e.target.value))
+                }
                 maxLength={18}
                 className={inputClass}
               />
@@ -357,7 +432,6 @@ export default function EditarOSPage() {
                 type="text"
                 value={endereco}
                 onChange={(e) => setEndereco(e.target.value)}
-                placeholder="Rua, Número, Complemento, Bairro"
                 className={inputClass}
               />
             </div>
@@ -378,13 +452,39 @@ export default function EditarOSPage() {
                 className={inputClass}
               >
                 <option value="">Selecione...</option>
-                {["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"].map(
-                  (uf) => (
-                    <option key={uf} value={uf}>
-                      {uf}
-                    </option>
-                  )
-                )}
+                {[
+                  "AC",
+                  "AL",
+                  "AM",
+                  "AP",
+                  "BA",
+                  "CE",
+                  "DF",
+                  "ES",
+                  "GO",
+                  "MA",
+                  "MG",
+                  "MS",
+                  "MT",
+                  "PA",
+                  "PB",
+                  "PE",
+                  "PI",
+                  "PR",
+                  "RJ",
+                  "RN",
+                  "RO",
+                  "RR",
+                  "RS",
+                  "SC",
+                  "SE",
+                  "SP",
+                  "TO",
+                ].map((uf) => (
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -402,7 +502,6 @@ export default function EditarOSPage() {
                 type="text"
                 value={telefone}
                 onChange={(e) => setTelefone(mascaraTelefone(e.target.value))}
-                maxLength={15}
                 className={inputClass}
               />
             </div>
@@ -421,64 +520,66 @@ export default function EditarOSPage() {
               <thead>
                 <tr className="border-b border-[#1E1E1E]">
                   <th className="pb-2 text-left text-xs text-[#6B7280] w-6">#</th>
-                  <th className="pb-2 text-left text-xs text-[#6B7280]">Tipo / Descrição *</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280]">Tipo *</th>
                   <th className="pb-2 text-left text-xs text-[#6B7280] w-24">Qtd *</th>
-                  <th className="pb-2 text-left text-xs text-[#6B7280] w-36">Valor Unit. (R$) *</th>
-                  <th className="pb-2 text-left text-xs text-[#6B7280] w-32">Total (R$)</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280] w-36">Unit. (R$) *</th>
+                  <th className="pb-2 text-left text-xs text-[#6B7280] w-32">Total</th>
                   <th className="pb-2 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1A1A1A]">
-                {materiais.map((m, idx) => {
-                  const total = calcularLinha(m);
-                  return (
-                    <tr key={m.id}>
-                      <td className="py-2 pr-2 text-[#6B7280]">{idx + 1}</td>
-                      <td className="py-2 pr-2">
-                        <input
-                          type="text"
-                          value={m.tipo}
-                          onChange={(e) => updateMaterial(m.id, "tipo", e.target.value)}
-                          className={inputClass}
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={m.quantidade}
-                          onChange={(e) => updateMaterial(m.id, "quantidade", e.target.value)}
-                          className={inputClass}
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <input
-                          type="text"
-                          value={m.valor_unitario}
-                          onChange={(e) => updateMaterial(m.id, "valor_unitario", e.target.value)}
-                          placeholder="0,00"
-                          className={inputClass}
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <div className="rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-3 py-2 text-sm text-white">
-                          {`R$ ${total.toFixed(2).replace(".", ",")}`}
-                        </div>
-                      </td>
-                      <td className="py-2">
-                        <button
-                          type="button"
-                          onClick={() => removerMaterial(m.id)}
-                          disabled={materiais.length <= 1}
-                          className="rounded p-1 text-[#6B7280] hover:bg-red-900/20 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {materiais.map((m, idx) => (
+                  <tr key={m.id}>
+                    <td className="py-2 text-[#6B7280]">{idx + 1}</td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="text"
+                        value={m.tipo}
+                        onChange={(e) =>
+                          updateMaterial(m.id, "tipo", e.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={m.quantidade}
+                        onChange={(e) =>
+                          updateMaterial(m.id, "quantidade", e.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="text"
+                        value={m.valor_unitario}
+                        onChange={(e) =>
+                          updateMaterial(m.id, "valor_unitario", e.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <div className="rounded-lg bg-[#1A1A1A] px-3 py-2 border border-[#2A2A2A]">
+                        {formatBRL(calcularLinha(m))}
+                      </div>
+                    </td>
+                    <td className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => removerMaterial(m.id)}
+                        disabled={materiais.length <= 1}
+                        className="text-[#6B7280] hover:text-red-400 disabled:opacity-20"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -486,7 +587,7 @@ export default function EditarOSPage() {
             type="button"
             onClick={adicionarMaterial}
             disabled={materiais.length >= 5}
-            className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-[#2A2A2A] px-4 py-2 text-sm text-[#9CA3AF] transition hover:border-[#CC0000] hover:text-[#CC0000] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-[#2A2A2A] px-4 py-2 text-sm text-[#9CA3AF] hover:border-[#CC0000] hover:text-[#CC0000] transition"
           >
             <Plus size={14} />
             Adicionar Material ({materiais.length}/5)
@@ -500,7 +601,6 @@ export default function EditarOSPage() {
             Observações
             <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <label className={labelInput}>Observações</label>
           <textarea
             value={observacoes}
             onChange={(e) => setObservacoes(e.target.value)}
@@ -509,14 +609,11 @@ export default function EditarOSPage() {
             className={`${inputClass} resize-none`}
           />
           <p className="mt-1 text-right text-xs text-[#6B7280]">
-            <span className={observacoes.length >= 275 ? "text-red-400" : ""}>
-              {observacoes.length}
-            </span>
-            /275 caracteres
+            {observacoes.length}/275 caracteres
           </p>
         </div>
 
-        {/* Garantia e Valores */}
+        {/* Totais */}
         <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
           <div className={sectionTitle}>
             <span className="h-px flex-1 bg-[#1E1E1E]" />
@@ -545,18 +642,18 @@ export default function EditarOSPage() {
                 type="text"
                 value={taxaVisita}
                 onChange={(e) => setTaxaVisita(e.target.value)}
-                placeholder="0,00"
                 className={inputClass}
               />
             </div>
           </div>
+
           <div className="mt-6 rounded-xl border border-[#CC0000]/30 bg-[#CC0000]/5 p-4">
             <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-1">Total da OS</p>
             <p className="text-4xl font-bold text-[#CC0000]">
-              {totalOS.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </p>
-            <p className="mt-1 text-xs text-[#6B7280]">
-              Materiais: {`R$ ${somaMateirais.toFixed(2).replace(".", ",")}`} + Taxa Visita: {`R$ ${taxaV.toFixed(2).replace(".", ",")}`}
+              {totalOS.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
             </p>
           </div>
         </div>
@@ -572,5 +669,21 @@ export default function EditarOSPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function EditarOSPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="flex justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
+          </div>
+        </AppLayout>
+      }
+    >
+      <EditarOSForm />
+    </Suspense>
   );
 }

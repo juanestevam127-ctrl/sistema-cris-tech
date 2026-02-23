@@ -69,6 +69,7 @@ export interface CrisTechOS {
   id: string;
   numero_os: number;
   data_os: string;
+  cliente_id?: string;
 
   // Dados do cliente (inline)
   cliente_nome: string;

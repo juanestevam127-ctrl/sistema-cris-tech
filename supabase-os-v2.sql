@@ -3,18 +3,14 @@
 -- Execute este script no SQL Editor do Supabase Dashboard
 -- ============================================================
 
--- 1. Remover tabelas não utilizadas
+-- 1. Remover tabelas não utilizadas (exceto clientes)
 DROP TABLE IF EXISTS cris_tech_os_fotos CASCADE;
-DROP TABLE IF EXISTS cris_tech_clientes CASCADE;
 
 -- 2. Dropar tabela antiga de OS (e depedências)
 DROP TABLE IF EXISTS cris_tech_os_materiais CASCADE;
 DROP TABLE IF EXISTS cris_tech_ordens_servico CASCADE;
 
--- 3. Remover funções antigas se existirem
-DROP FUNCTION IF EXISTS fn_calcular_material CASCADE;
-DROP FUNCTION IF EXISTS fn_calcular_os_v2 CASCADE;
-DROP FUNCTION IF EXISTS fn_atualizar_total_os CASCADE;
+-- ... (funções dropadas no passo 3) ...
 
 -- ============================================================
 -- TABELA PRINCIPAL: Ordens de Serviço
@@ -23,10 +19,13 @@ CREATE TABLE cris_tech_ordens_servico (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   numero_os SERIAL UNIQUE,
 
+  -- Vinculação com Cliente (Opcional, mas recomendado v2.2)
+  cliente_id UUID REFERENCES cris_tech_clientes(id) ON DELETE SET NULL,
+
   -- Data da OS
   data_os DATE NOT NULL DEFAULT CURRENT_DATE,
 
-  -- Dados do Cliente (inline, sem tabela separada)
+  -- Dados do Cliente (Snapshot/Inline)
   cliente_nome TEXT NOT NULL,
   cliente_endereco_completo TEXT NOT NULL,
   cliente_cidade TEXT NOT NULL,

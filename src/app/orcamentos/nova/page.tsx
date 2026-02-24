@@ -87,7 +87,6 @@ export default function NovoOrcamentoPage() {
                     descricao: i.descricao.trim(),
                     quantidade: i.quantidade,
                     valor_unitario: i.valorUnitario,
-                    valor_total: i.quantidade * i.valorUnitario,
                     ordem: idx,
                 });
                 if (itemError) throw itemError;

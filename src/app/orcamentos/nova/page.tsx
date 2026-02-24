@@ -182,7 +182,7 @@ export default function NovoOrcamentoPage() {
 
             const renderData: Record<string, string> = {
                 "data.text": format(new Date(orc.data_emissao), "dd/MM/yyyy"),
-                "cimente-te": orc.cliente_nome || "-",
+                "cliente.text": orc.cliente_nome || "-",
                 "cpf_cnpj.text": orc.cliente_cpf_cnpj || "-",
                 "endereco.text": orc.cliente_endereco_completo || "-",
                 "cidade.text": orc.cliente_cidade || "-",

@@ -32,12 +32,15 @@ export default function OrcamentosPage() {
   const [orcamentos, setOrcamentos] = useState<(CrisTechOrcamento & { cris_tech_clientes?: { nome: string }; cris_tech_orcamento_itens?: { valor_total: number }[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [confirmExcluir, setConfirmExcluir] = useState<CrisTechOrcamento | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [pagina, setPagina] = useState(0);
 
-  const podeExcluir = usuario?.role === "master" || usuario?.role === "admin";
+  // Removida restrição conforme solicitação
+  const podeExcluir = true;
 
   const fetchOrc = useCallback(async () => {
     setLoading(true);
@@ -45,7 +48,11 @@ export default function OrcamentosPage() {
       .from("cris_tech_orcamentos")
       .select("*, cris_tech_clientes!cliente_id(nome), cris_tech_orcamento_itens(valor_total)")
       .order("data_emissao", { ascending: false });
+
     if (filtroStatus !== "todos") q = q.eq("status", filtroStatus);
+    if (dataInicio) q = q.gte("data_emissao", dataInicio);
+    if (dataFim) q = q.lte("data_emissao", dataFim);
+
     const { data } = await q;
     let lista = (data ?? []) as (CrisTechOrcamento & { cris_tech_clientes?: { nome: string }; cris_tech_orcamento_itens?: { valor_total: number }[] })[];
     if (busca) {
@@ -68,11 +75,16 @@ export default function OrcamentosPage() {
     }
     setOrcamentos(lista);
     setLoading(false);
-  }, [busca, filtroStatus]);
+  }, [busca, filtroStatus, dataInicio, dataFim]);
 
   useEffect(() => {
     fetchOrc();
   }, [fetchOrc]);
+
+  // Resumos
+  const totalGeral = orcamentos.reduce((s, o) => s + totalOrcamento(o), 0);
+  const aprovados = orcamentos.filter(o => o.status === 'aprovado').length;
+  const pendentes = orcamentos.filter(o => o.status === 'pendente').length;
 
   const paginados = orcamentos.slice(pagina * PAGE_SIZE, (pagina + 1) * PAGE_SIZE);
   const totalPaginas = Math.ceil(orcamentos.length / PAGE_SIZE) || 1;
@@ -109,31 +121,83 @@ export default function OrcamentosPage() {
           </Button>
         </div>
 
-        <div className="flex flex-wrap gap-4">
-          <input
-            type="text"
-            placeholder="Buscar por número ou cliente..."
-            value={busca}
-            onChange={(e) => {
-              setBusca(e.target.value);
-              setPagina(0);
-            }}
-            className="flex-1 min-w-[200px] rounded-lg border border-[#1E1E1E] bg-[#111111] px-4 py-2 text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
-          />
-          <select
-            value={filtroStatus}
-            onChange={(e) => {
-              setFiltroStatus(e.target.value);
-              setPagina(0);
-            }}
-            className="rounded-lg border border-[#1E1E1E] bg-[#111111] px-4 py-2 text-white"
-          >
-            <option value="todos">Status: Todos</option>
-            <option value="pendente">Pendente</option>
-            <option value="aprovado">Aprovado</option>
-            <option value="recusado">Recusado</option>
-            <option value="expirado">Expirado</option>
-          </select>
+        {/* Resumo */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Pendentes</p>
+            <p className="mt-1 text-2xl font-bold text-amber-500">{pendentes}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Aprovados no período</p>
+            <p className="mt-1 text-2xl font-bold text-green-500">{aprovados}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Total no período</p>
+            <p className="mt-1 text-2xl font-bold text-[#CC0000]">
+              {totalGeral.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+          <div className="flex-1 min-w-[200px]">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Busca</label>
+            <input
+              type="text"
+              placeholder="Nº ou cliente..."
+              value={busca}
+              onChange={(e) => {
+                setBusca(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            />
+          </div>
+
+          <div className="w-full sm:w-40">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Início</label>
+            <input
+              type="date"
+              value={dataInicio}
+              onChange={(e) => {
+                setDataInicio(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            />
+          </div>
+
+          <div className="w-full sm:w-40">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Fim</label>
+            <input
+              type="date"
+              value={dataFim}
+              onChange={(e) => {
+                setDataFim(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            />
+          </div>
+
+          <div className="w-full sm:w-44">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Status</label>
+            <select
+              value={filtroStatus}
+              onChange={(e) => {
+                setFiltroStatus(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white"
+            >
+              <option value="todos">Todos</option>
+              <option value="pendente">Pendente</option>
+              <option value="aprovado">Aprovado</option>
+              <option value="recusado">Recusado</option>
+              <option value="expirado">Expirado</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-[#1E1E1E] bg-[#111111]">

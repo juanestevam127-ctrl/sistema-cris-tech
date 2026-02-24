@@ -192,6 +192,7 @@ function NovaOSForm() {
   const [garantiaMeses, setGarantiaMeses] = useState("0");
   const [taxaVisita, setTaxaVisita] = useState("");
 
+  const [status, setStatus] = useState<CrisTechOS["status"]>("aberta");
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
 
@@ -343,6 +344,7 @@ function NovaOSForm() {
           observacoes: observacoes.trim() || null,
           garantia_meses: parseInt(garantiaMeses, 10) || 0,
           taxa_visita: taxaV,
+          status: status,
           criado_por: usuario?.id,
         })
         .select("id, numero_os")
@@ -430,6 +432,19 @@ function NovaOSForm() {
               onChange={(e) => setDataOs(e.target.value)}
               className={inputClass}
             />
+          </div>
+          <div className="mt-4 max-w-xs">
+            <label className={labelInput}>Status *</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              className={inputClass}
+            >
+              <option value="aberta">Aberta</option>
+              <option value="em_andamento">Em Andamento</option>
+              <option value="concluida">Concluída</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
           </div>
         </div>
 

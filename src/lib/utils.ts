@@ -10,7 +10,14 @@ export function formatCurrency(value: number): string {
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
+  let d: Date;
+  if (typeof date === "string") {
+    // Se for apenas data (yyyy-mm-dd), adiciona meio-dia para evitar problemas de fuso
+    const dateStr = date.includes("T") ? date : `${date}T12:00:00`;
+    d = new Date(dateStr);
+  } else {
+    d = date;
+  }
   return format(d, "dd/MM/yyyy", { locale: ptBR });
 }
 

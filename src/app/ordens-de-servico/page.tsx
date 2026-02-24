@@ -45,20 +45,28 @@ export default function OrdensServicoPage() {
   const [ordens, setOrdens] = useState<CrisTechOS[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [filtroGarantia, setFiltroGarantia] = useState<FiltroGarantia>("todas");
   const [confirmExcluir, setConfirmExcluir] = useState<CrisTechOS | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [pagina, setPagina] = useState(0);
 
-  const podeExcluir =
-    usuario?.role === "master" || usuario?.role === "admin";
+  // Removida restrição de role conforme solicitação: "Qualquer usuario pode criar, excluir e editar"
+  const podeExcluir = true;
 
   const fetchOrdens = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    let q = supabase
       .from("cris_tech_ordens_servico")
       .select("*")
       .order("created_at", { ascending: false });
+
+    // Filtro de data
+    if (dataInicio) q = q.gte("data_os", dataInicio);
+    if (dataFim) q = q.lte("data_os", dataFim);
+
+    const { data } = await q;
 
     let lista = (data ?? []) as CrisTechOS[];
 
@@ -90,11 +98,16 @@ export default function OrdensServicoPage() {
 
     setOrdens(lista);
     setLoading(false);
-  }, [busca, filtroGarantia]);
+  }, [busca, filtroGarantia, dataInicio, dataFim]);
 
   useEffect(() => {
     fetchOrdens();
   }, [fetchOrdens]);
+
+  // Resumos
+  const totalGeral = ordens.reduce((s, o) => s + (o.valor_total ?? 0), 0);
+  const concluida = ordens.filter(o => o.status === 'concluida').length;
+  const aberta = ordens.filter(o => o.status === 'aberta' || o.status === 'em_andamento').length;
 
   const paginados = ordens.slice(
     pagina * PAGE_SIZE,
@@ -107,7 +120,7 @@ export default function OrdensServicoPage() {
       return <span className="text-[#6B7280]">—</span>;
     if (!o.data_vencimento_garantia)
       return <span className="text-[#9CA3AF]">{o.garantia_meses}m</span>;
-    const venc = new Date(o.data_vencimento_garantia);
+    const venc = new Date(o.data_vencimento_garantia + "T12:00:00");
     const hoje = new Date();
     if (venc < hoje) {
       return (
@@ -174,31 +187,82 @@ export default function OrdensServicoPage() {
           </Button>
         </div>
 
+        {/* Resumo */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Abertas / Em Andamento</p>
+            <p className="mt-1 text-2xl font-bold text-white">{aberta}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Concluídas no período</p>
+            <p className="mt-1 text-2xl font-bold text-green-500">{concluida}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Total no período</p>
+            <p className="mt-1 text-2xl font-bold text-[#CC0000]">
+              {totalGeral.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          </div>
+        </div>
+
         {/* Filtros */}
-        <div className="flex flex-wrap gap-3">
-          <input
-            type="text"
-            placeholder="Buscar por nº OS ou nome do cliente..."
-            value={busca}
-            onChange={(e) => {
-              setBusca(e.target.value);
-              setPagina(0);
-            }}
-            className="flex-1 min-w-[220px] rounded-lg border border-[#1E1E1E] bg-[#111111] px-4 py-2 text-sm text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
-          />
-          <select
-            value={filtroGarantia}
-            onChange={(e) => {
-              setFiltroGarantia(e.target.value as FiltroGarantia);
-              setPagina(0);
-            }}
-            className="rounded-lg border border-[#1E1E1E] bg-[#111111] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
-          >
-            <option value="todas">Garantia: Todas</option>
-            <option value="vigente">Vigente</option>
-            <option value="expirada">Expirada</option>
-            <option value="sem">Sem garantia</option>
-          </select>
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
+          <div className="flex-1 min-w-[220px]">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Busca</label>
+            <input
+              type="text"
+              placeholder="Busque nº OS ou cliente..."
+              value={busca}
+              onChange={(e) => {
+                setBusca(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            />
+          </div>
+
+          <div className="w-full sm:w-40">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Início</label>
+            <input
+              type="date"
+              value={dataInicio}
+              onChange={(e) => {
+                setDataInicio(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            />
+          </div>
+
+          <div className="w-full sm:w-40">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Fim</label>
+            <input
+              type="date"
+              value={dataFim}
+              onChange={(e) => {
+                setDataFim(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            />
+          </div>
+
+          <div className="w-full sm:w-44">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Garantia</label>
+            <select
+              value={filtroGarantia}
+              onChange={(e) => {
+                setFiltroGarantia(e.target.value as FiltroGarantia);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            >
+              <option value="todas">Todas</option>
+              <option value="vigente">Vigente</option>
+              <option value="expirada">Expirada</option>
+              <option value="sem">Sem garantia</option>
+            </select>
+          </div>
         </div>
 
         {/* Tabela */}

@@ -67,7 +67,7 @@ export default function NovoOrcamentoPage() {
                 .insert({
                     cliente_id: clienteId,
                     status: "pendente",
-                    data_emissao: dataEmissao,
+                    data_emissao: dataEmissao ? `${dataEmissao}T12:00:00` : new Date().toISOString(),
                     data_validade: dataValidade || null,
                     descricao: descricao || null,
                     observacoes: observacoes || null,

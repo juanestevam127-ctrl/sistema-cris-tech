@@ -78,7 +78,7 @@ export default function ClientesPage() {
             <h1 className="text-2xl font-bold text-white">Clientes</h1>
             <p className="text-[#9CA3AF]">Gerencie os clientes da empresa.</p>
           </div>
-          <Button variant="primary" onClick={abrirNovo}>
+          <Button variant="primary" className="w-full sm:w-auto" onClick={abrirNovo}>
             + Novo Cliente
           </Button>
         </div>
@@ -108,7 +108,8 @@ export default function ClientesPage() {
           </select>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-[#1E1E1E] bg-[#111111]">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto rounded-lg border border-[#1E1E1E] bg-[#111111]">
           {loading ? (
             <div className="flex justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
@@ -148,11 +149,10 @@ export default function ClientesPage() {
                       <td className="px-4 py-3 text-white">{c.nome}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`rounded px-2 py-0.5 text-xs font-medium ${
-                            c.tipo === "pessoa_fisica"
+                          className={`rounded px-2 py-0.5 text-xs font-medium ${c.tipo === "pessoa_fisica"
                               ? "bg-[#1E1E1E] text-[#9CA3AF]"
                               : "bg-amber-900/30 text-amber-400"
-                          }`}
+                            }`}
                         >
                           {c.tipo === "pessoa_fisica" ? "PF" : "PJ"}
                         </span>
@@ -193,34 +193,121 @@ export default function ClientesPage() {
                   ))}
                 </tbody>
               </table>
-              {totalPaginas > 1 && (
-                <div className="flex items-center justify-between border-t border-[#1E1E1E] px-4 py-3">
-                  <span className="text-sm text-[#9CA3AF]">
-                    Página {pagina + 1} de {totalPaginas}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      className="text-sm"
-                      onClick={() => setPagina((p) => Math.max(0, p - 1))}
-                      disabled={pagina === 0}
-                    >
-                      Anterior
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="text-sm"
-                      onClick={() => setPagina((p) => Math.min(totalPaginas - 1, p + 1))}
-                      disabled={pagina >= totalPaginas - 1}
-                    >
-                      Próxima
-                    </Button>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CC0000] border-t-transparent" />
+            </div>
+          ) : paginados.length === 0 ? (
+            <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-8 text-center text-[#6B7280]">
+              Nenhum cliente encontrado.
+            </div>
+          ) : (
+            paginados.map((c) => (
+              <div
+                key={c.id}
+                className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 space-y-4"
+                onClick={() => router.push(`/clientes/${c.id}`)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="max-w-[80%]">
+                    <h3 className="text-lg font-bold text-white truncate">
+                      {c.nome}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span
+                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${c.tipo === "pessoa_fisica"
+                            ? "bg-[#1E1E1E] text-[#9CA3AF]"
+                            : "bg-amber-900/30 text-amber-400"
+                          }`}
+                      >
+                        {c.tipo === "pessoa_fisica" ? "PF" : "PJ"}
+                      </span>
+                      <p className="text-sm text-[#9CA3AF]">
+                        {formatCpfCnpj(c.cpf_cnpj) || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-[#1E1E1E] pt-4">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-[#4B5563]">Contato</p>
+                    <p className="text-sm text-white truncate">
+                      {formatPhone(c.celular || c.telefone) || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-[#4B5563]">Local</p>
+                    <p className="text-sm text-[#9CA3AF] truncate">
+                      {[c.cidade, c.estado].filter(Boolean).join("/") || "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    variant="secondary"
+                    className="flex-1 py-1 px-4 text-xs h-9"
+                    onClick={() => router.push(`/clientes/${c.id}`)}
+                  >
+                    Ver Perfil
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1 py-1 px-4 text-xs h-9"
+                    onClick={(ev) => abrirEditar(c, ev)}
+                  >
+                    <Pencil size={14} className="mr-1.5" /> Editar
+                  </Button>
+                  {podeExcluir && (
+                    <Button
+                      variant="ghost"
+                      className="text-red-400 hover:bg-red-900/20 py-1 px-3 h-9 border border-red-900/30"
+                      onClick={() => setConfirmExcluir(c)}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Pagination - Modified for mobile */}
+        {!loading && totalPaginas > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#1E1E1E] px-4 py-6 md:py-3">
+            <span className="text-sm text-[#9CA3AF]">
+              Página {pagina + 1} de {totalPaginas}
+            </span>
+            <div className="flex w-full sm:w-auto gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1 sm:flex-none text-sm py-2"
+                onClick={() => setPagina((p) => Math.max(0, p - 1))}
+                disabled={pagina === 0}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1 sm:flex-none text-sm py-2"
+                onClick={() =>
+                  setPagina((p) => Math.min(totalPaginas - 1, p + 1))
+                }
+                disabled={pagina >= totalPaginas - 1}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <ModalCliente

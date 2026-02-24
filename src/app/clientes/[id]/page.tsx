@@ -92,11 +92,11 @@ export default function ClientePerfilPage() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="text-2xl font-bold text-white">{cliente.nome}</h1>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-white truncate">{cliente.nome}</h1>
           <Button
             variant="secondary"
-            className="gap-2"
+            className="w-full sm:w-auto gap-2"
             onClick={() => setModalCliente(true)}
           >
             <Pencil size={16} />
@@ -111,8 +111,8 @@ export default function ClientePerfilPage() {
                 <h2 className="font-semibold text-white">Dados do cliente</h2>
                 <span
                   className={`rounded px-2 py-0.5 text-xs font-medium ${cliente.tipo === "pessoa_fisica"
-                      ? "bg-[#1E1E1E] text-[#9CA3AF]"
-                      : "bg-amber-900/30 text-amber-400"
+                    ? "bg-[#1E1E1E] text-[#9CA3AF]"
+                    : "bg-amber-900/30 text-amber-400"
                     }`}
                 >
                   {cliente.tipo === "pessoa_fisica" ? "PF" : "PJ"}
@@ -164,8 +164,8 @@ export default function ClientePerfilPage() {
                   type="button"
                   onClick={() => setAba("os")}
                   className={`px-4 py-3 text-sm font-medium ${aba === "os"
-                      ? "border-b-2 border-[#CC0000] text-white"
-                      : "text-[#9CA3AF] hover:text-white"
+                    ? "border-b-2 border-[#CC0000] text-white"
+                    : "text-[#9CA3AF] hover:text-white"
                     }`}
                 >
                   Ordens de Serviço
@@ -174,8 +174,8 @@ export default function ClientePerfilPage() {
                   type="button"
                   onClick={() => setAba("orcamentos")}
                   className={`px-4 py-3 text-sm font-medium ${aba === "orcamentos"
-                      ? "border-b-2 border-[#CC0000] text-white"
-                      : "text-[#9CA3AF] hover:text-white"
+                    ? "border-b-2 border-[#CC0000] text-white"
+                    : "text-[#9CA3AF] hover:text-white"
                     }`}
                 >
                   Orçamentos

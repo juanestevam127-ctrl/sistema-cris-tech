@@ -141,13 +141,13 @@ export default function ClientePerfilPage() {
             </div>
           </div>
           <div className="lg:col-span-2">
-            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-4">
                 <p className="text-2xl font-bold text-white">{totalOS}</p>
                 <p className="text-xs text-[#9CA3AF]">Total OS</p>
               </div>
               <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-4">
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-white truncate">
                   {ultimaOS ? formatDate(ultimaOS.data_os) : "—"}
                 </p>
                 <p className="text-xs text-[#9CA3AF]">Última manutenção</p>
@@ -214,7 +214,7 @@ export default function ClientePerfilPage() {
                     )}
                     <Button
                       variant="secondary"
-                      className="mt-4"
+                      className="mt-4 w-full sm:w-auto"
                       onClick={() =>
                         router.push(
                           `/ordens-de-servico/nova?cliente=${cliente.id}`
@@ -257,7 +257,7 @@ export default function ClientePerfilPage() {
                     )}
                     <Button
                       variant="secondary"
-                      className="mt-4"
+                      className="mt-4 w-full sm:w-auto"
                       onClick={() =>
                         router.push(
                           `/orcamentos/nova?cliente=${cliente.id}`

@@ -143,13 +143,13 @@ export default function OrcamentoPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-6">
             <h2 className="mb-4 font-semibold text-white">Cliente</h2>
             <button
               type="button"
               onClick={() => cliente && router.push(`/clientes/${cliente.id}`)}
-              className="text-[#CC0000] hover:underline"
+              className="text-[#CC0000] hover:underline text-left"
             >
               {cliente?.nome ?? "—"}
             </button>
@@ -157,15 +157,17 @@ export default function OrcamentoPage() {
           <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-6">
             <h2 className="mb-4 font-semibold text-white">Informações</h2>
             <div className="space-y-2 text-sm text-[#9CA3AF]">
-              <p>Emissão: {formatDate(orcamento.data_emissao)}</p>
-              <p>Validade: {formatDate(orcamento.data_validade) || "—"}</p>
+              <p>Emissão: <span className="text-white font-medium">{formatDate(orcamento.data_emissao)}</span></p>
+              <p>Validade: <span className="text-white font-medium">{formatDate(orcamento.data_validade) || "—"}</span></p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-6">
+        <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-4 sm:p-6">
           <h2 className="mb-4 font-semibold text-white">Itens</h2>
-          <div className="overflow-x-auto">
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[#1E1E1E]">
@@ -178,7 +180,7 @@ export default function OrcamentoPage() {
               </thead>
               <tbody>
                 {orcamento.itens?.map((i, idx) => (
-                  <tr key={i.id} className="border-b border-[#1E1E1E] last:border-0">
+                  <tr key={i.id} className="border-b border-[#1E1E1E] last:border-0 hover:bg-[#1A1A1A]">
                     <td className="px-4 py-2 text-[#9CA3AF]">{idx + 1}</td>
                     <td className="px-4 py-2 text-white">{i.descricao}</td>
                     <td className="px-4 py-2 text-[#9CA3AF]">{i.quantidade}</td>
@@ -189,8 +191,27 @@ export default function OrcamentoPage() {
               </tbody>
             </table>
           </div>
-          <div className="mt-4 flex justify-end border-t border-[#1E1E1E] pt-4">
-            <span className="text-lg font-bold text-white">TOTAL GERAL: {formatCurrency(totalGeral)}</span>
+
+          {/* Mobile List */}
+          <div className="md:hidden space-y-4">
+            {orcamento.itens?.map((i, idx) => (
+              <div key={i.id} className="rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <span className="text-[10px] font-bold text-[#CC0000] uppercase">Item #{idx + 1}</span>
+                  <span className="text-white font-bold">{formatCurrency(i.valor_total ?? 0)}</span>
+                </div>
+                <p className="text-sm text-white">{i.descricao}</p>
+                <div className="flex justify-between text-xs text-[#4B5563]">
+                  <span>Qtd: {i.quantidade}</span>
+                  <span>Unit: {formatCurrency(i.valor_unitario ?? 0)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex justify-between items-center border-t border-[#1E1E1E] pt-4">
+            <span className="text-sm font-semibold text-[#9CA3AF] uppercase tracking-wider">Total Geral</span>
+            <span className="text-xl font-bold text-[#CC0000]">{formatCurrency(totalGeral)}</span>
           </div>
         </div>
 

@@ -262,7 +262,7 @@ export default function OSDetailPage() {
         {/* ─── Nota Fiscal ──────────────────────────────── */}
         <div className="print-area rounded-2xl border border-[#1E1E1E] bg-[#111111] overflow-hidden">
           {/* Cabeçalho vermelho */}
-          <div className="bg-[#CC0000] px-8 py-5 flex items-center justify-between">
+          <div className="bg-[#CC0000] px-4 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-white tracking-wide">
                 CRIS TECH
@@ -271,7 +271,7 @@ export default function OSDetailPage() {
                 Tecnologia & Serviços
               </p>
             </div>
-            <div className="text-right">
+            <div className="sm:text-right">
               <p className="text-white text-xs uppercase tracking-wider opacity-80">
                 Ordem de Serviço
               </p>
@@ -283,19 +283,23 @@ export default function OSDetailPage() {
 
           <div className="p-8 space-y-6">
             {/* Data */}
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-col sm:flex-row justify-between gap-2 text-sm">
               <span className="text-[#9CA3AF]">
                 Data:{" "}
                 <span className="text-white font-medium">{dataFormatada}</span>
               </span>
+              <span className="text-[#9CA3AF]">
+                Status:{" "}
+                <span className="text-white font-medium uppercase">{os.status}</span>
+              </span>
             </div>
 
             {/* Dados do cliente */}
-            <div className="rounded-xl bg-[#0D0D0D] border border-[#1A1A1A] p-5">
+            <div className="rounded-xl bg-[#0D0D0D] border border-[#1A1A1A] p-4 sm:p-5">
               <h3 className="text-xs font-bold uppercase tracking-widest text-[#CC0000] mb-4">
                 Dados do Cliente
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-8 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8 text-sm">
                 <DetailRow label="Cliente" value={os.cliente_nome} />
                 <DetailRow label="CPF/CNPJ" value={os.cliente_cpf_cnpj} />
                 <DetailRow
@@ -315,7 +319,9 @@ export default function OSDetailPage() {
               <h3 className="text-xs font-bold uppercase tracking-widest text-[#CC0000] mb-3">
                 Materiais Utilizados
               </h3>
-              <div className="overflow-x-auto rounded-xl border border-[#1A1A1A]">
+
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-[#1A1A1A]">
                 <table className="w-full text-sm">
                   <thead className="bg-[#0D0D0D]">
                     <tr>
@@ -361,6 +367,29 @@ export default function OSDetailPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile List View */}
+              <div className="md:hidden space-y-3">
+                {os.materiais.length > 0 ? (
+                  os.materiais.map((m) => (
+                    <div key={m.id} className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-4 space-y-2">
+                      <p className="text-sm font-bold text-white">{m.tipo}</p>
+                      <div className="flex justify-between text-xs text-[#9CA3AF]">
+                        <span>Qtd: {m.quantidade}</span>
+                        <span>Unit: {formatBRL(m.valor_unitario)}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-[#1A1A1A] pt-2">
+                        <span className="text-[10px] uppercase font-bold text-[#4B5563]">Total do Item</span>
+                        <span className="text-sm font-bold text-white">{formatBRL(m.valor_total)}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-[#1A1A1A] bg-[#0A0A0A] p-6 text-center text-[#6B7280] text-sm">
+                    Nenhum material registrado
+                  </div>
+                )}
               </div>
             </div>
 

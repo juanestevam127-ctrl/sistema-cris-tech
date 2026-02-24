@@ -343,7 +343,9 @@ export default function NovoOrcamentoPage() {
 
                     <div>
                         <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">ITENS</label>
-                        <div className="overflow-x-auto rounded border border-[#1E1E1E]">
+
+                        {/* Desktop Table */}
+                        <div className="hidden md:block overflow-x-auto rounded border border-[#1E1E1E]">
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-[#1E1E1E] bg-[#1A1A1A]">
@@ -383,7 +385,7 @@ export default function NovoOrcamentoPage() {
                                                     min={0}
                                                     step={0.01}
                                                     value={item.valorUnitario}
-                                                    onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value.replace(",", ".")) || 0)}
+                                                    onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)}
                                                     className="w-28 rounded border border-[#1E1E1E] bg-[#0A0A0A] px-2 py-1.5 text-sm text-white"
                                                 />
                                             </td>
@@ -404,9 +406,67 @@ export default function NovoOrcamentoPage() {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-4">
+                            {itens.map((item, idx) => (
+                                <div key={item.id} className="rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] p-4 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-[#CC0000]">ITEM #{idx + 1}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeItem(item.id)}
+                                            className="text-[#9CA3AF] hover:text-red-400"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Descrição *</label>
+                                        <input
+                                            value={item.descricao}
+                                            onChange={(e) => updateItem(item.id, "descricao", e.target.value)}
+                                            placeholder="Descrição do item"
+                                            className="w-full rounded border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-sm text-white"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Qtd *</label>
+                                            <input
+                                                type="number"
+                                                min={0.01}
+                                                step={0.01}
+                                                value={item.quantidade}
+                                                onChange={(e) => updateItem(item.id, "quantidade", parseFloat(e.target.value) || 0)}
+                                                className="w-full rounded border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-sm text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Val. Unit. *</label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={0.01}
+                                                value={item.valorUnitario}
+                                                onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)}
+                                                className="w-full rounded border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-sm text-white"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded border border-[#1E1E1E] bg-[#1A1A1A] p-2 text-center text-sm font-bold text-white">
+                                        Total: {formatCurrency(item.quantidade * item.valorUnitario)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
                         <Button
                             variant="secondary"
-                            className="mt-2 text-sm"
+                            className="mt-2 w-full md:w-auto text-sm"
                             onClick={addItem}
                             disabled={itens.length >= 5}
                         >
@@ -429,11 +489,11 @@ export default function NovoOrcamentoPage() {
                         />
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-6">
-                        <Button variant="ghost" onClick={() => router.back()}>
+                    <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6">
+                        <Button variant="ghost" className="w-full sm:w-auto order-2 sm:order-1" onClick={() => router.back()}>
                             Cancelar
                         </Button>
-                        <Button variant="primary" onClick={salvar} loading={salvando}>
+                        <Button variant="primary" className="w-full sm:w-auto order-1 sm:order-2" onClick={salvar} loading={salvando}>
                             Criar Orçamento
                         </Button>
                     </div>

@@ -50,3 +50,10 @@ export function formatCep(val: string | null | undefined): string {
   if (!val) return "";
   return val.replace(/\D/g, "").replace(/(\d{5})(\d)/, "$1-$2");
 }
+
+export function formatWhatsAppNumber(phone: string): string {
+  const nums = phone.replace(/\D/g, "");
+  // Se já tem 55, mantém, senão adiciona
+  if (nums.startsWith("55")) return nums;
+  return `55${nums}`;
+}

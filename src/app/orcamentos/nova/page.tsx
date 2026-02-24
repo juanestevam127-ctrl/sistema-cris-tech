@@ -10,7 +10,8 @@ import { Input, Textarea } from "@/components/ui/Input";
 import { supabase } from "@/lib/supabaseClient";
 import { Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatWhatsAppNumber } from "@/lib/utils";
+import { format } from "date-fns";
 
 interface ItemOrc {
     id: string;
@@ -33,6 +34,37 @@ export default function NovoOrcamentoPage() {
     ]);
     const [salvando, setSalvando] = useState(false);
 
+    // Campos adicionais para snapshot (necessários para a imagem)
+    const [clienteNome, setClienteNome] = useState("");
+    const [cpfCnpj, setCpfCnpj] = useState("");
+    const [endereco, setEndereco] = useState("");
+    const [cidade, setCidade] = useState("");
+    const [estado, setEstado] = useState("");
+    const [email, setEmail] = useState("");
+    const [telefone, setTelefone] = useState("");
+
+    const handleSelectCliente = (id: string) => {
+        setClienteId(id);
+        const c = clientes.find((item) => item.id === id);
+        if (c) {
+            setClienteNome(c.nome);
+            setCpfCnpj(c.cpf_cnpj || "");
+            setEndereco(`${c.endereco || ""}${c.numero ? `, ${c.numero}` : ""}${c.complemento ? ` - ${c.complemento}` : ""}${c.bairro ? ` - ${c.bairro}` : ""}`);
+            setCidade(c.cidade || "");
+            setEstado(c.estado || "");
+            setEmail(c.email || "");
+            setTelefone(c.celular || c.telefone || "");
+        } else {
+            setClienteNome("");
+            setCpfCnpj("");
+            setEndereco("");
+            setCidade("");
+            setEstado("");
+            setEmail("");
+            setTelefone("");
+        }
+    };
+
     const addItem = () => {
         setItens((prev) => [...prev, { id: crypto.randomUUID(), descricao: "", quantidade: 1, valorUnitario: 0 }]);
     };
@@ -51,6 +83,10 @@ export default function NovoOrcamentoPage() {
     const salvar = async () => {
         if (!clienteId) {
             toast.error("Selecione o cliente.");
+            return;
+        }
+        if (!telefone.trim()) {
+            toast.error("Informe o telefone do cliente (Obrigatório para WhatsApp).");
             return;
         }
         const itensValidos = itens.filter((i) => i.descricao.trim());
@@ -72,6 +108,14 @@ export default function NovoOrcamentoPage() {
                     descricao: descricao || null,
                     observacoes: observacoes || null,
                     criado_por: usuario?.id,
+                    // Snapshots
+                    cliente_nome: clienteNome,
+                    cliente_endereco_completo: endereco,
+                    cliente_cidade: cidade,
+                    cliente_estado: estado,
+                    cliente_cpf_cnpj: cpfCnpj,
+                    cliente_email: email || null,
+                    cliente_telefone: telefone,
                 })
                 .select("id")
                 .single();
@@ -93,12 +137,122 @@ export default function NovoOrcamentoPage() {
             }
 
             toast.success("Orçamento criado com sucesso!");
+
+            // 3. Buscar orçamento completo com itens para Renderform
+            const { data: orcCompleto } = await supabase
+                .from("cris_tech_orcamentos")
+                .select("*, cris_tech_orcamento_itens(*)")
+                .eq("id", orcId)
+                .single();
+
+            if (orcCompleto) {
+                gerarImagemOrc(orcCompleto);
+            }
+
             router.push(`/orcamentos/${orcId}`);
         } catch (e) {
             console.error(e);
             toast.error("Erro ao salvar orçamento.");
         } finally {
             setSalvando(false);
+        }
+    };
+
+    const gerarImagemOrc = async (orc: any) => {
+        try {
+            await supabase.from("cris_tech_orcamentos").update({ imagem_orc_status: "gerando" }).eq("id", orc.id);
+
+            const itensRaw = orc.cris_tech_orcamento_itens || [];
+            const ip = Array.from({ length: 5 }, (_, i) => {
+                const it = itensRaw[i];
+                return {
+                    tipo: it?.descricao || "-",
+                    qntd: it ? String(it.quantidade) : "-",
+                    valor: it ? `R$ ${it.valor_unitario.toFixed(2).replace(".", ",")}` : "-",
+                };
+            });
+
+            const renderData: Record<string, string> = {
+                "data.text": format(new Date(orc.data_emissao), "dd/MM/yyyy"),
+                "cimente-te": orc.cliente_nome || "-",
+                "cpf_cnpj.text": orc.cliente_cpf_cnpj || "-",
+                "endereco.text": orc.cliente_endereco_completo || "-",
+                "cidade.text": orc.cliente_cidade || "-",
+                "estado.text": orc.cliente_estado || "-",
+                "email.text": orc.cliente_email || "-",
+                "telefone.text": orc.cliente_telefone || "-",
+                "tipo1.text": ip[0].tipo,
+                "qntd1.text": ip[0].qntd,
+                "valor1.text": ip[0].valor,
+                "tipo2.text": ip[1].tipo,
+                "qntd2.text": ip[1].qntd,
+                "valor2.text": ip[1].valor,
+                "tipo3.text": ip[2].tipo,
+                "qntd3.text": ip[2].qntd,
+                "valor3.text": ip[2].valor,
+                "tipo4.text": ip[3].tipo,
+                "qntd4.text": ip[4].qntd,
+                "valor4.text": ip[4].valor,
+                "tipo5.text": ip[5].tipo,
+                "qntd5.text": ip[5].qntd,
+                "valor5.text": ip[5].valor,
+                "observacao.text": orc.descricao || "-",
+                "taxa_visita.text": "-",
+                "valor_total.text": formatCurrency(totalGeral)
+            };
+
+            const response = await fetch("https://get.renderform.io/api/v2/render", {
+                method: "POST",
+                headers: {
+                    "X-API-KEY": "key-zEze7Eo2dJ3RBLiRtni2z2ANGM5GlHTqW6",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    template: "short-flies-fight-happily-1555",
+                    data: renderData,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.href) {
+                await supabase.from("cris_tech_orcamentos").update({
+                    imagem_orc_url: result.href,
+                    imagem_orc_status: "concluida"
+                }).eq("id", orc.id);
+
+                toast.success("✅ Imagem do Orçamento gerada!");
+
+                if (orc.cliente_telefone) {
+                    enviarWhatsApp(orc.cliente_nome, orc.cliente_telefone, result.href);
+                }
+            }
+        } catch (error) {
+            console.error("Renderform error:", error);
+            await supabase.from("cris_tech_orcamentos").update({ imagem_orc_status: "erro" }).eq("id", orc.id);
+        }
+    };
+
+    const enviarWhatsApp = async (nome: string, telefone: string, imageUrl: string) => {
+        try {
+            const number = formatWhatsAppNumber(telefone);
+            await fetch("https://evolution-evolution-api.5rqumh.easypanel.host/message/sendMedia/CrisTech", {
+                method: "POST",
+                headers: {
+                    apikey: "3E977D89D253-4FC5-A1E5-E270C2FDC4D3",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    number: number,
+                    mediatype: "image",
+                    mimetype: "image/png",
+                    media: imageUrl,
+                    fileName: "Orcamento.png",
+                }),
+            });
+            toast.success("✅ Orçamento enviado ao WhatsApp!");
+        } catch (error) {
+            console.error("WhatsApp error:", error);
         }
     };
 
@@ -111,7 +265,7 @@ export default function NovoOrcamentoPage() {
                         <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">CLIENTE *</label>
                         <select
                             value={clienteId}
-                            onChange={(e) => setClienteId(e.target.value)}
+                            onChange={(e) => handleSelectCliente(e.target.value)}
                             className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-white outline-none focus:ring-1 focus:ring-[#CC0000]"
                         >
                             <option value="">Selecione um cliente...</option>
@@ -119,6 +273,43 @@ export default function NovoOrcamentoPage() {
                                 <option key={c.id} value={c.id}>{c.nome}</option>
                             ))}
                         </select>
+                    </div>
+
+                    {/* Snapshot Fields (Simplified visibility) */}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 opacity-80">
+                        <div className="sm:col-span-2">
+                            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">NOME COMPLETO *</label>
+                            <input
+                                value={clienteNome}
+                                onChange={(e) => setClienteNome(e.target.value)}
+                                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">CPF/CNPJ *</label>
+                            <input
+                                value={cpfCnpj}
+                                onChange={(e) => setCpfCnpj(e.target.value)}
+                                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">TELEFONE *</label>
+                            <input
+                                value={telefone}
+                                onChange={(e) => setTelefone(e.target.value)}
+                                placeholder="(00) 00000-0000"
+                                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                            />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">ENDEREÇO *</label>
+                            <input
+                                value={endereco}
+                                onChange={(e) => setEndereco(e.target.value)}
+                                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2 text-sm text-white"
+                            />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -131,6 +131,20 @@ export interface CrisTechOrcamento {
   data_validade?: string;
   descricao?: string;
   observacoes?: string;
+
+  // Snapshot do cliente
+  cliente_nome?: string;
+  cliente_endereco_completo?: string;
+  cliente_cidade?: string;
+  cliente_estado?: string;
+  cliente_cpf_cnpj?: string;
+  cliente_email?: string;
+  cliente_telefone?: string;
+
+  // Imagem do Orçamento (Renderform)
+  imagem_orc_url?: string;
+  imagem_orc_status?: "pendente" | "gerando" | "concluida" | "erro";
+
   criado_por?: string;
   created_at: string;
   itens?: CrisTechOrcamentoItem[];

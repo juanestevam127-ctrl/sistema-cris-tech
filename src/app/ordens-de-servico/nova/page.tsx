@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import toast from "react-hot-toast";
 import type { CrisTechOS, CrisTechOSMaterial, CrisTechCliente } from "@/types";
 import { format, addMonths } from "date-fns";
+import { formatWhatsAppNumber } from "@/lib/utils";
 import { Trash2, Plus, Search, User } from "lucide-react";
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -142,6 +143,11 @@ async function gerarImagemOS(
         })
         .eq("id", os.id);
       toast.success("✅ Imagem da OS gerada com sucesso!");
+
+      // Enviar WhatsApp após gerar imagem
+      if (os.cliente_telefone) {
+        enviarWhatsApp(os.cliente_nome, os.cliente_telefone, result.href);
+      }
     } else {
       throw new Error("URL não retornada");
     }
@@ -152,6 +158,33 @@ async function gerarImagemOS(
       .eq("id", os.id);
     toast.error("❌ Erro ao gerar imagem da OS");
     console.error("Renderform error:", error);
+  }
+}
+
+async function enviarWhatsApp(nome: string, telefone: string, imageUrl: string) {
+  try {
+    const number = formatWhatsAppNumber(telefone);
+    await fetch(
+      "https://evolution-evolution-api.5rqumh.easypanel.host/message/sendMedia/CrisTech",
+      {
+        method: "POST",
+        headers: {
+          apikey: "3E977D89D253-4FC5-A1E5-E270C2FDC4D3",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          number: number,
+          mediatype: "image",
+          mimetype: "image/png",
+          media: imageUrl,
+          fileName: "OrdemDeServico.png",
+        }),
+      }
+    );
+    toast.success("✅ OS enviada ao WhatsApp do cliente!");
+  } catch (error) {
+    console.error("WhatsApp error:", error);
+    toast.error("❌ Erro ao enviar WhatsApp");
   }
 }
 
@@ -309,6 +342,10 @@ function NovaOSForm() {
     }
     if (!cpfCnpj.trim()) {
       toast.error("Informe CPF/CNPJ do cliente.");
+      return;
+    }
+    if (!telefone.trim()) {
+      toast.error("Informe o telefone do cliente (Obrigatório para WhatsApp).");
       return;
     }
     if (!endereco.trim()) {

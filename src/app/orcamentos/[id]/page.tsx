@@ -114,6 +114,16 @@ export default function OrcamentoPage() {
             <span className={`mt-1 inline-block rounded px-2 py-0.5 text-sm ${STATUS_COLORS[orcamento.status] ?? "bg-[#1E1E1E]"}`}>
               {orcamento.status}
             </span>
+            {orcamento.imagem_orc_status === "concluida" && (
+              <span className="ml-2 mt-1 inline-block rounded bg-green-900/40 px-2 py-0.5 text-sm text-green-400">
+                Imagem Gerada
+              </span>
+            )}
+            {orcamento.imagem_orc_status === "gerando" && (
+              <span className="ml-2 mt-1 inline-block animate-pulse rounded bg-blue-900/40 px-2 py-0.5 text-sm text-blue-400">
+                Gerando Imagem...
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => router.push(`/orcamentos/${id}/editar`)}>
@@ -188,6 +198,20 @@ export default function OrcamentoPage() {
           <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-6">
             <h2 className="mb-2 font-semibold text-white">Observações</h2>
             <p className="text-sm text-[#9CA3AF]">{orcamento.observacoes}</p>
+          </div>
+        )}
+
+        {orcamento.imagem_orc_url && (
+          <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-6 text-center">
+            <h2 className="mb-4 font-semibold text-white">Imagem do Orçamento</h2>
+            <img
+              src={orcamento.imagem_orc_url}
+              alt="Orçamento"
+              className="mx-auto mb-4 max-h-[500px] rounded-lg shadow-xl shadow-black/50"
+            />
+            <Button variant="secondary" onClick={() => window.open(orcamento.imagem_orc_url, "_blank")}>
+              Ver Imagem Completa
+            </Button>
           </div>
         )}
       </div>

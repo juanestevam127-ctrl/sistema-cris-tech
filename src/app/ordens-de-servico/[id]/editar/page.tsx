@@ -322,7 +322,7 @@ function EditarOSForm() {
     <AppLayout>
       <div className="mx-auto max-w-4xl space-y-6 pb-12">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
@@ -335,7 +335,7 @@ function EditarOSForm() {
               <p className="text-sm text-[#9CA3AF]">Atualize os dados da ordem de serviço</p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right px-12 sm:px-0">
             <p className="text-xs text-[#6B7280] uppercase tracking-wider">Nº OS</p>
             <p className="text-2xl font-bold text-[#CC0000]">
               OS-{String(numeroOs).padStart(4, "0")}
@@ -515,7 +515,9 @@ function EditarOSForm() {
             Materiais Utilizados
             <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <div className="overflow-x-auto">
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b border-[#1E1E1E]">
@@ -583,11 +585,68 @@ function EditarOSForm() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {materiais.map((m, idx) => (
+              <div key={m.id} className="rounded-lg border border-[#2A2A2A] bg-[#0A0A0A] p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#CC0000]">MATERIAL #{idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removerMaterial(m.id)}
+                    disabled={materiais.length <= 1}
+                    className="text-[#6B7280] hover:text-red-400 disabled:opacity-30"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                <div>
+                  <label className={labelInput}>Descrição / Tipo *</label>
+                  <input
+                    type="text"
+                    value={m.tipo}
+                    onChange={(e) => updateMaterial(m.id, "tipo", e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelInput}>Qtd *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={m.quantidade}
+                      onChange={(e) => updateMaterial(m.id, "quantidade", e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelInput}>Unit. (R$) *</label>
+                    <input
+                      type="text"
+                      value={m.valor_unitario}
+                      onChange={(e) => updateMaterial(m.id, "valor_unitario", e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-[#1E1E1E] bg-[#111111] p-2 text-center">
+                  <p className="text-[10px] uppercase font-bold text-[#4B5563] mb-1">Total do Item</p>
+                  <p className="text-sm font-bold text-white">{formatBRL(calcularLinha(m))}</p>
+                </div>
+              </div>
+            ))}
+          </div>
           <button
             type="button"
             onClick={adicionarMaterial}
             disabled={materiais.length >= 5}
-            className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-[#2A2A2A] px-4 py-2 text-sm text-[#9CA3AF] hover:border-[#CC0000] hover:text-[#CC0000] transition"
+            className="mt-3 flex w-full md:w-auto items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#2A2A2A] px-4 py-3 md:py-2 text-sm text-[#9CA3AF] hover:border-[#CC0000] hover:text-[#CC0000] transition"
           >
             <Plus size={14} />
             Adicionar Material ({materiais.length}/5)
@@ -659,11 +718,11 @@ function EditarOSForm() {
         </div>
 
         {/* Ações */}
-        <div className="flex justify-end gap-3">
-          <Button variant="ghost" onClick={() => router.back()}>
+        <div className="flex flex-col sm:flex-row justify-end gap-3">
+          <Button variant="ghost" className="w-full sm:w-auto order-2 sm:order-1" onClick={() => router.back()}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={salvar} loading={salvando}>
+          <Button variant="primary" className="w-full sm:w-auto order-1 sm:order-2" onClick={salvar} loading={salvando}>
             Salvar Alterações
           </Button>
         </div>

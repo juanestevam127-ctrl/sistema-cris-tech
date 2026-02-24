@@ -13,6 +13,9 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Cris Tech - Gerador de Imagens",
   description: "Automação e gestão completa de imagens",
+  icons: {
+    icon: "https://arxaqnwuyesmjcsyfmbj.supabase.co/storage/v1/object/public/imagens-sem-exclusao/file-Photoroom%20(1).png",
+  },
 };
 
 export default function RootLayout({

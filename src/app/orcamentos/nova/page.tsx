@@ -66,6 +66,7 @@ export default function NovoOrcamentoPage() {
     };
 
     const addItem = () => {
+        if (itens.length >= 5) return;
         setItens((prev) => [...prev, { id: crypto.randomUUID(), descricao: "", quantidade: 1, valorUnitario: 0 }]);
     };
 
@@ -172,6 +173,13 @@ export default function NovoOrcamentoPage() {
                 };
             });
 
+            // Calcular total a partir dos itens do banco (não do estado React)
+            const totalItensBanco = itensRaw.reduce(
+                (acc: number, it: any) => acc + (it.valor_total || it.quantidade * it.valor_unitario || 0),
+                0
+            );
+            const totalFormatado = `R$ ${totalItensBanco.toFixed(2).replace(".", ",")}`;
+
             const renderData: Record<string, string> = {
                 "data.text": format(new Date(orc.data_emissao), "dd/MM/yyyy"),
                 "cimente-te": orc.cliente_nome || "-",
@@ -191,14 +199,14 @@ export default function NovoOrcamentoPage() {
                 "qntd3.text": ip[2].qntd,
                 "valor3.text": ip[2].valor,
                 "tipo4.text": ip[3].tipo,
-                "qntd4.text": ip[4].qntd,
-                "valor4.text": ip[4].valor,
-                "tipo5.text": ip[5].tipo,
-                "qntd5.text": ip[5].qntd,
-                "valor5.text": ip[5].valor,
+                "qntd4.text": ip[3].qntd,
+                "valor4.text": ip[3].valor,
+                "tipo5.text": ip[4].tipo,
+                "qntd5.text": ip[4].qntd,
+                "valor5.text": ip[4].valor,
                 "observacao.text": orc.descricao || "-",
                 "taxa_visita.text": "-",
-                "valor_total.text": formatCurrency(totalGeral)
+                "valor_total.text": totalFormatado
             };
 
             const response = await fetch("https://get.renderform.io/api/v2/render", {
@@ -396,8 +404,13 @@ export default function NovoOrcamentoPage() {
                                 </tbody>
                             </table>
                         </div>
-                        <Button variant="secondary" className="mt-2 text-sm" onClick={addItem}>
-                            <Plus size={16} /> Adicionar Item
+                        <Button
+                            variant="secondary"
+                            className="mt-2 text-sm"
+                            onClick={addItem}
+                            disabled={itens.length >= 5}
+                        >
+                            <Plus size={16} /> Adicionar Item ({itens.length}/5)
                         </Button>
                     </div>
 

@@ -125,12 +125,12 @@ export default function OrcamentoPage() {
               </span>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => router.push(`/orcamentos/${id}/editar`)}>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button variant="secondary" className="w-full sm:w-auto" onClick={() => router.push(`/orcamentos/${id}/editar`)}>
               Editar
             </Button>
             {orcamento.status === "pendente" && (
-              <Button variant="primary" className="bg-green-600 hover:bg-green-700" onClick={() => setModalConvert(true)}>
+              <Button variant="primary" className="w-full sm:w-auto bg-green-600 hover:bg-green-700" onClick={() => setModalConvert(true)}>
                 Converter em OS
               </Button>
             )}

@@ -12,6 +12,7 @@ import { Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { formatCurrency, formatWhatsAppNumber } from "@/lib/utils";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/utils";
 
 interface ItemOrc {
     id: string;
@@ -181,7 +182,7 @@ export default function NovoOrcamentoPage() {
             const totalFormatado = `R$ ${totalItensBanco.toFixed(2).replace(".", ",")}`;
 
             const renderData: Record<string, string> = {
-                "data.text": format(new Date(orc.data_emissao), "dd/MM/yyyy"),
+                "data.text": formatDate(orc.data_emissao),
                 "cliente.text": orc.cliente_nome || "-",
                 "cpf_cnpj.text": orc.cliente_cpf_cnpj || "-",
                 "endereco.text": orc.cliente_endereco_completo || "-",
@@ -224,6 +225,17 @@ export default function NovoOrcamentoPage() {
             const result = await response.json();
 
             if (result.href) {
+                // Tenta atualizar para concluída apenas se não estiver concluída (evita duplicados em concorrência)
+                const { data: orcAtual, error: fetchError } = await supabase
+                    .from("cris_tech_orcamentos")
+                    .select("imagem_orc_status")
+                    .eq("id", orc.id)
+                    .single();
+
+                if (fetchError || orcAtual?.imagem_orc_status === "concluida") {
+                    return;
+                }
+
                 await supabase.from("cris_tech_orcamentos").update({
                     imagem_orc_url: result.href,
                     imagem_orc_status: "concluida"

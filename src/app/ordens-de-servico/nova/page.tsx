@@ -11,6 +11,7 @@ import type { CrisTechOS, CrisTechOSMaterial, CrisTechCliente } from "@/types";
 import { format, addMonths } from "date-fns";
 import { formatWhatsAppNumber } from "@/lib/utils";
 import { Trash2, Plus, Search, User } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ async function gerarImagemOS(
     });
 
     const renderData: Record<string, string> = {
-      "data.text": format(new Date(os.data_os + "T12:00:00"), "dd/MM/yyyy"),
+      "data.text": formatDate(os.data_os),
       "cliente.text": os.cliente_nome || "-",
       "cpf_cnpj.text": os.cliente_cpf_cnpj || "-",
       "endereco.text": os.cliente_endereco_completo || "-",
@@ -135,6 +136,17 @@ async function gerarImagemOS(
     const result = await response.json();
 
     if (result.href) {
+      // Tenta atualizar para concluída apenas se não estiver concluída (evita duplicados em concorrência)
+      const { data: osAtual, error: fetchError } = await supabase
+        .from("cris_tech_ordens_servico")
+        .select("imagem_os_status")
+        .eq("id", os.id)
+        .single();
+
+      if (fetchError || osAtual?.imagem_os_status === "concluida") {
+        return;
+      }
+
       await supabase
         .from("cris_tech_ordens_servico")
         .update({

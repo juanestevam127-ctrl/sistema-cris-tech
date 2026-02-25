@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { CrisTechOS } from "@/types";
-import { format } from "date-fns";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -319,12 +319,7 @@ export default function OrdensServicoPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-[#9CA3AF]">
-                          {o.data_os
-                            ? format(
-                              new Date(o.data_os + "T12:00:00"),
-                              "dd/MM/yyyy"
-                            )
-                            : "-"}
+                          {formatDate(o.data_os)}
                         </td>
                         <td className="px-4 py-3 text-sm text-white max-w-[180px] truncate">
                           {o.cliente_nome || "-"}
@@ -413,9 +408,7 @@ export default function OrdensServicoPage() {
                       {o.cliente_nome || "Sem nome"}
                     </h3>
                     <p className="text-sm text-[#9CA3AF]">
-                      {o.data_os
-                        ? format(new Date(o.data_os + "T12:00:00"), "dd/MM/yyyy")
-                        : "-"}
+                      {formatDate(o.data_os)}
                     </p>
                   </div>
                   <ImagemBadge status={o.imagem_os_status} />

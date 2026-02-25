@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import type { CrisTechOS, CrisTechOSMaterial } from "@/types";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatDate } from "@/lib/utils";
 
 // ─── Renderform ─────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ async function gerarImagemOS(
     });
 
     const renderData: Record<string, string> = {
-      "data.text": format(new Date(os.data_os + "T12:00:00"), "dd/MM/yyyy"),
+      "data.text": formatDate(os.data_os),
       "cliente.text": os.cliente_nome || "-",
       "cpf_cnpj.text": os.cliente_cpf_cnpj || "-",
       "endereco.text": os.cliente_endereco_completo || "-",

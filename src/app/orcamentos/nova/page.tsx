@@ -12,6 +12,7 @@ import { Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { formatCurrency, formatWhatsAppNumber } from "@/lib/utils";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { formatDate } from "@/lib/utils";
 
 interface ItemOrc {
@@ -207,7 +208,17 @@ export default function NovoOrcamentoPage() {
                 "valor5.text": ip[4].valor,
                 "observacao.text": orc.descricao || "-",
                 "taxa_visita.text": "-",
-                "valor_total.text": totalFormatado
+                "valor_total.text": totalFormatado,
+                "garantia.text": orc.data_validade
+                    ? (() => {
+                        const d = new Date(orc.data_validade + "T12:00:00");
+                        const dia = format(d, "dd");
+                        const mes = format(d, "MMMM", { locale: ptBR });
+                        const mesCap = mes.charAt(0).toUpperCase() + mes.slice(1);
+                        const ano = format(d, "yyyy");
+                        return `Orçamento válido até dia ${dia} de ${mesCap} de ${ano}.`;
+                    })()
+                    : "-"
             };
 
             const response = await fetch("https://get.renderform.io/api/v2/render", {

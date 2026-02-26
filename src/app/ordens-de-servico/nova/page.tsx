@@ -116,7 +116,7 @@ async function gerarImagemOS(
       "valor_total.text": `R$ ${os.valor_total.toFixed(2).replace(".", ",")}`,
       "garantia.text":
         garantiaDias > 0
-          ? `Garantia de mão-de-obra: ${garantiaDias} dias`
+          ? `Garantia: ${garantiaDias} dias`
           : "-",
       "nome_cliente_assinatura.text": os.cliente_nome || "-",
     };
@@ -676,7 +676,7 @@ function NovaOSForm() {
                         <input
                           type="number"
                           min="0"
-                          step="0.01"
+                          step="1"
                           value={m.quantidade}
                           onChange={(e) =>
                             updateMaterial(m.id, "quantidade", e.target.value)

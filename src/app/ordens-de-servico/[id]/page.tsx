@@ -69,7 +69,7 @@ async function gerarImagemOS(
       "valor_total.text": `R$ ${os.valor_total.toFixed(2).replace(".", ",")}`,
       "garantia.text":
         garantiaDias > 0
-          ? `Garantia de mão-de-obra: ${garantiaDias} dias`
+          ? `Garantia: ${garantiaDias} dias`
           : "-",
       "nome_cliente_assinatura.text": os.cliente_nome || "-",
     };

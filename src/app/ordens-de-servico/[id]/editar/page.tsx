@@ -547,7 +547,7 @@ function EditarOSForm() {
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="1"
                         value={m.quantidade}
                         onChange={(e) =>
                           updateMaterial(m.id, "quantidade", e.target.value)
@@ -618,7 +618,7 @@ function EditarOSForm() {
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={m.quantidade}
                       onChange={(e) => updateMaterial(m.id, "quantidade", e.target.value)}
                       className={inputClass}

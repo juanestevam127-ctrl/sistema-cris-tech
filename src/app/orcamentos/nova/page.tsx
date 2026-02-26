@@ -18,8 +18,8 @@ import { formatDate } from "@/lib/utils";
 interface ItemOrc {
     id: string;
     descricao: string;
-    quantidade: number;
-    valorUnitario: number;
+    quantidade: string;
+    valorUnitario: string;
 }
 
 export default function NovoOrcamentoPage() {
@@ -32,7 +32,7 @@ export default function NovoOrcamentoPage() {
     const [descricao, setDescricao] = useState("");
     const [observacoes, setObservacoes] = useState("");
     const [itens, setItens] = useState<ItemOrc[]>([
-        { id: crypto.randomUUID(), descricao: "", quantidade: 1, valorUnitario: 0 },
+        { id: crypto.randomUUID(), descricao: "", quantidade: "1", valorUnitario: "" },
     ]);
     const [salvando, setSalvando] = useState(false);
 
@@ -69,10 +69,10 @@ export default function NovoOrcamentoPage() {
 
     const addItem = () => {
         if (itens.length >= 5) return;
-        setItens((prev) => [...prev, { id: crypto.randomUUID(), descricao: "", quantidade: 1, valorUnitario: 0 }]);
+        setItens((prev) => [...prev, { id: crypto.randomUUID(), descricao: "", quantidade: "1", valorUnitario: "" }]);
     };
 
-    const updateItem = (itemId: string, field: keyof ItemOrc, value: string | number) => {
+    const updateItem = (itemId: string, field: keyof ItemOrc, value: string) => {
         setItens((prev) => prev.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)));
     };
 
@@ -81,7 +81,11 @@ export default function NovoOrcamentoPage() {
         setItens((prev) => prev.filter((i) => i.id !== itemId));
     };
 
-    const totalGeral = itens.reduce((s, i) => s + i.quantidade * i.valorUnitario, 0);
+    const totalGeral = itens.reduce((s, i) => {
+        const q = parseFloat(i.quantidade) || 0;
+        const v = parseFloat(i.valorUnitario.replace(",", ".")) || 0;
+        return s + q * v;
+    }, 0);
 
     const salvar = async () => {
         if (!clienteId) {
@@ -129,11 +133,13 @@ export default function NovoOrcamentoPage() {
             const orcId = orc.id;
             for (let idx = 0; idx < itensValidos.length; idx++) {
                 const i = itensValidos[idx];
+                const q = parseFloat(i.quantidade) || 0;
+                const v = parseFloat(i.valorUnitario.replace(",", ".")) || 0;
                 const { error: itemError } = await supabase.from("cris_tech_orcamento_itens").insert({
                     orcamento_id: orcId,
                     descricao: i.descricao.trim(),
-                    quantidade: i.quantidade,
-                    valor_unitario: i.valorUnitario,
+                    quantidade: q,
+                    valor_unitario: v,
                     ordem: idx,
                 });
                 if (itemError) throw itemError;
@@ -395,25 +401,24 @@ export default function NovoOrcamentoPage() {
                                             <td className="px-3 py-2">
                                                 <input
                                                     type="number"
-                                                    min={0.01}
-                                                    step={0.01}
+                                                    min={0}
+                                                    step={1}
                                                     value={item.quantidade}
-                                                    onChange={(e) => updateItem(item.id, "quantidade", parseFloat(e.target.value) || 0)}
+                                                    onChange={(e) => updateItem(item.id, "quantidade", e.target.value)}
                                                     className="w-20 rounded border border-[#1E1E1E] bg-[#0A0A0A] px-2 py-1.5 text-sm text-white"
                                                 />
                                             </td>
                                             <td className="px-3 py-2">
                                                 <input
-                                                    type="number"
-                                                    min={0}
-                                                    step={0.01}
+                                                    type="text"
                                                     value={item.valorUnitario}
-                                                    onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)}
+                                                    onChange={(e) => updateItem(item.id, "valorUnitario", e.target.value)}
+                                                    placeholder="0,00"
                                                     className="w-28 rounded border border-[#1E1E1E] bg-[#0A0A0A] px-2 py-1.5 text-sm text-white"
                                                 />
                                             </td>
                                             <td className="px-3 py-2 text-[#9CA3AF] text-sm">
-                                                {formatCurrency(item.quantidade * item.valorUnitario)}
+                                                {formatCurrency((parseFloat(item.quantidade) || 0) * (parseFloat(item.valorUnitario.replace(",", ".")) || 0))}
                                             </td>
                                             <td className="px-3 py-2 text-right">
                                                 <button

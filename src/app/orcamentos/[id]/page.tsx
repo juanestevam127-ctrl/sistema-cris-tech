@@ -56,55 +56,80 @@ export default function OrcamentoPage() {
   const vencido = orcamento?.status === "pendente" && orcamento?.data_validade && orcamento.data_validade < new Date().toISOString().split("T")[0];
 
   const converterEmOS = async () => {
-    if (!orcamento || !cliente) return;
+    if (!orcamento || !cliente) {
+      toast.error("Dados do orçamento ou cliente não carregados.");
+      return;
+    }
     setConvertendo(true);
     try {
+      console.log("Iniciando conversão de orçamento para OS...", { id, orcamento, cliente });
+
+      // Preparar os dados para inserção, garantindo que colunas obrigatórias não sejam nulas
+      const osInsertData = {
+        cliente_id: orcamento.cliente_id,
+        status: "aberta",
+        data_os: new Date().toISOString().split("T")[0],
+        cliente_nome: orcamento.cliente_nome || cliente.nome || "Não informado",
+        cliente_endereco_completo: orcamento.cliente_endereco_completo || `${cliente.endereco || ""}${cliente.numero ? `, ${cliente.numero}` : ""}` || "Não informado",
+        cliente_cidade: orcamento.cliente_cidade || cliente.cidade || "Não informado",
+        cliente_estado: orcamento.cliente_estado || cliente.estado || "??",
+        cliente_cpf_cnpj: orcamento.cliente_cpf_cnpj || cliente.cpf_cnpj || "Não informado",
+        cliente_email: orcamento.cliente_email || cliente.email || null,
+        cliente_telefone: orcamento.cliente_telefone || cliente.telefone || cliente.celular || null,
+        observacoes: orcamento.observacoes ? orcamento.observacoes.substring(0, 275) : null,
+        garantia_meses: 0,
+        taxa_visita: 0,
+        criado_por: orcamento.criado_por,
+      };
+
+      console.log("Dados da OS para inserção:", osInsertData);
+
       const { data: os, error } = await supabase
         .from("cris_tech_ordens_servico")
-        .insert({
-          cliente_id: orcamento.cliente_id,
-          status: "aberta",
-          data_os: new Date().toISOString().split("T")[0],
-          cliente_nome: orcamento.cliente_nome ?? cliente.nome ?? "",
-          cliente_endereco_completo: orcamento.cliente_endereco_completo ?? `${cliente.endereco || ""}${cliente.numero ? `, ${cliente.numero}` : ""}`,
-          cliente_cidade: orcamento.cliente_cidade ?? cliente.cidade ?? "",
-          cliente_estado: orcamento.cliente_estado ?? cliente.estado ?? "",
-          cliente_cpf_cnpj: orcamento.cliente_cpf_cnpj ?? cliente.cpf_cnpj ?? "",
-          cliente_email: orcamento.cliente_email ?? cliente.email ?? null,
-          cliente_telefone: orcamento.cliente_telefone ?? cliente.telefone ?? cliente.celular ?? null,
-          observacoes: orcamento.observacoes ? orcamento.observacoes.substring(0, 275) : null,
-          garantia_meses: 0,
-          taxa_visita: 0,
-          criado_por: orcamento.criado_por,
-        })
+        .insert(osInsertData)
         .select("id")
         .single();
-      if (error) throw error;
+
+      if (error) {
+        console.error("Erro Supabase (OS):", error);
+        throw new Error(`Erro ao criar OS: ${error.message}`);
+      }
+
+      if (!os) {
+        throw new Error("OS criada mas não retornou ID.");
+      }
 
       const materiaisInsert = (orcamento.itens || []).map((m, i) => ({
-        os_id: (os as { id: string }).id,
+        os_id: os.id,
         tipo: m.descricao.trim() || "-",
         quantidade: m.quantidade || 1,
         valor_unitario: m.valor_unitario || 0,
         ordem: i + 1,
-      }));
+      })).slice(0, 10); // Respeitar o limite de 10 itens atualizado na migração
 
       if (materiaisInsert.length > 0) {
+        console.log("Inserindo materiais:", materiaisInsert);
         const { error: matError } = await supabase
           .from("cris_tech_os_materiais")
           .insert(materiaisInsert);
-        if (matError) throw matError;
+
+        if (matError) {
+          console.error("Erro Supabase (Materiais):", matError);
+          throw new Error(`Erro ao inserir materiais: ${matError.message}`);
+        }
       }
+
       await supabase
         .from("cris_tech_orcamentos")
         .update({ status: "aprovado" })
         .eq("id", id);
+
       toast.success("Orçamento convertido em OS!");
       setModalConvert(false);
-      router.push(`/ordens-de-servico/${(os as { id: string }).id}`);
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro ao converter.");
+      router.push(`/ordens-de-servico/${os.id}`);
+    } catch (e: any) {
+      console.error("Erro completo na conversão:", e);
+      toast.error(e.message || "Erro ao converter.");
     } finally {
       setConvertendo(false);
     }

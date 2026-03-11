@@ -364,7 +364,7 @@ export default function NovoOrcamentoPage() {
                     <div>
                         <ObservacoesSection
                             valor={descricao}
-                            onChange={setDescricao}
+                            onChange={(val) => setDescricao(val)}
                             label="DESCRIÇÃO GERAL"
                             placeholder="Ex: Reforma de motor, Manutenção preventiva..."
                         />
@@ -512,7 +512,7 @@ export default function NovoOrcamentoPage() {
                         <Textarea
                             placeholder="Anotações para controle interno..."
                             value={observacoes}
-                            onChange={setObservacoes}
+                            onChange={(e) => setObservacoes(e.target.value)}
                             rows={3}
                         />
                     </div>

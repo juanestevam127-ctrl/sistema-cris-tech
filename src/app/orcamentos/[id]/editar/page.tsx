@@ -176,7 +176,7 @@ export default function EditarOrcamentoPage() {
           <div>
             <ObservacoesSection
               valor={descricao}
-              onChange={setDescricao}
+              onChange={(val) => setDescricao(val)}
               label="DESCRIÇÃO GERAL"
               placeholder="Ex: Reforma de motor, Manutenção preventiva..."
             />

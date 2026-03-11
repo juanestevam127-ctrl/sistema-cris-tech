@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import type { CrisTechOS, CrisTechOSMaterial, CrisTechCliente } from "@/types";
 import { format, addMonths } from "date-fns";
 import { Trash2, Plus, Search, ChevronLeft } from "lucide-react";
+import { ObservacoesSection } from "@/components/manutencao/ObservacoesSection";
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -660,16 +661,14 @@ function EditarOSForm() {
             Observações
             <span className="h-px flex-1 bg-[#1E1E1E]" />
           </div>
-          <textarea
-            value={observacoes}
-            onChange={(e) => setObservacoes(e.target.value)}
-            maxLength={275}
-            rows={4}
-            className={`${inputClass} resize-none`}
-          />
-          <p className="mt-1 text-right text-xs text-[#6B7280]">
-            {observacoes.length}/275 caracteres
-          </p>
+          <div className="pt-2">
+            <ObservacoesSection
+              valor={observacoes}
+              onChange={setObservacoes}
+              label={""}
+              placeholder="Observações adicionais..."
+            />
+          </div>
         </div>
 
         {/* Totais */}

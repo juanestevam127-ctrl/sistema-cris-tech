@@ -14,6 +14,7 @@ import { formatCurrency, formatWhatsAppNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatDate } from "@/lib/utils";
+import { ObservacoesSection } from "@/components/manutencao/ObservacoesSection";
 
 interface ItemOrc {
     id: string;
@@ -468,7 +469,7 @@ export default function NovoOrcamentoPage() {
                                                 min={0.01}
                                                 step={0.01}
                                                 value={item.quantidade}
-                                                onChange={(e) => updateItem(item.id, "quantidade", parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => updateItem(item.id, "quantidade", e.target.value)}
                                                 className="w-full rounded border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-sm text-white"
                                             />
                                         </div>
@@ -479,14 +480,14 @@ export default function NovoOrcamentoPage() {
                                                 min={0}
                                                 step={0.01}
                                                 value={item.valorUnitario}
-                                                onChange={(e) => updateItem(item.id, "valorUnitario", parseFloat(e.target.value) || 0)}
+                                                onChange={(e) => updateItem(item.id, "valorUnitario", e.target.value)}
                                                 className="w-full rounded border border-[#1E1E1E] bg-[#111111] px-3 py-2 text-sm text-white"
                                             />
                                         </div>
                                     </div>
 
                                     <div className="rounded border border-[#1E1E1E] bg-[#1A1A1A] p-2 text-center text-sm font-bold text-white">
-                                        Total: {formatCurrency(item.quantidade * item.valorUnitario)}
+                                        Total: {formatCurrency((parseFloat(item.quantidade) || 0) * (parseFloat(item.valorUnitario) || 0))}
                                     </div>
                                 </div>
                             ))}
@@ -507,12 +508,11 @@ export default function NovoOrcamentoPage() {
                         <span className="text-xl font-bold text-[#CC0000]">{formatCurrency(totalGeral)}</span>
                     </div>
 
-                    <div>
-                        <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">OBSERVAÇÕES INTERNAS</label>
-                        <Textarea
-                            value={observacoes}
-                            onChange={(e) => setObservacoes(e.target.value)}
-                            rows={2}
+                    <div className="pt-4">
+                        <ObservacoesSection
+                            valor={observacoes}
+                            onChange={setObservacoes}
+                            label="OBSERVAÇÕES INTERNAS"
                             placeholder="Anotações para controle interno..."
                         />
                     </div>

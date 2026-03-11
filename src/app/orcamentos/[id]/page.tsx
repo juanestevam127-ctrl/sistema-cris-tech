@@ -59,25 +59,42 @@ export default function OrcamentoPage() {
     if (!orcamento || !cliente) return;
     setConvertendo(true);
     try {
-      const itensTexto = orcamento.itens
-        ?.map((i) => `- ${i.descricao} (${i.quantidade} x ${formatCurrency(i.valor_unitario ?? 0)} = ${formatCurrency(i.valor_total ?? 0)})`)
-        .join("\n") ?? "";
       const { data: os, error } = await supabase
         .from("cris_tech_ordens_servico")
         .insert({
           cliente_id: orcamento.cliente_id,
-          tipo: "manutencao",
           status: "aberta",
-          data_abertura: new Date().toISOString().split("T")[0],
-          descricao_problema: orcamento.descricao ?? "",
-          servicos_realizados: itensTexto,
-          valor_servico: totalGeral,
-          valor_pecas: 0,
-          valor_total: totalGeral,
+          data_os: new Date().toISOString().split("T")[0],
+          cliente_nome: orcamento.cliente_nome ?? cliente.nome ?? "",
+          cliente_endereco_completo: orcamento.cliente_endereco_completo ?? `${cliente.endereco || ""}${cliente.numero ? `, ${cliente.numero}` : ""}`,
+          cliente_cidade: orcamento.cliente_cidade ?? cliente.cidade ?? "",
+          cliente_estado: orcamento.cliente_estado ?? cliente.estado ?? "",
+          cliente_cpf_cnpj: orcamento.cliente_cpf_cnpj ?? cliente.cpf_cnpj ?? "",
+          cliente_email: orcamento.cliente_email ?? cliente.email ?? null,
+          cliente_telefone: orcamento.cliente_telefone ?? cliente.telefone ?? cliente.celular ?? null,
+          observacoes: orcamento.observacoes ? orcamento.observacoes.substring(0, 275) : null,
+          garantia_meses: 0,
+          taxa_visita: 0,
+          criado_por: orcamento.criado_por,
         })
         .select("id")
         .single();
       if (error) throw error;
+
+      const materiaisInsert = (orcamento.itens || []).map((m, i) => ({
+        os_id: (os as { id: string }).id,
+        tipo: m.descricao.trim() || "-",
+        quantidade: m.quantidade || 1,
+        valor_unitario: m.valor_unitario || 0,
+        ordem: i + 1,
+      }));
+
+      if (materiaisInsert.length > 0) {
+        const { error: matError } = await supabase
+          .from("cris_tech_os_materiais")
+          .insert(materiaisInsert);
+        if (matError) throw matError;
+      }
       await supabase
         .from("cris_tech_orcamentos")
         .update({ status: "aprovado" })

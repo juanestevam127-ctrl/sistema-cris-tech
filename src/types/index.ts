@@ -33,6 +33,13 @@ export interface CrisTechCampo {
   created_at?: string;
 }
 
+export interface CrisTechModeloObservacao {
+  id: string;
+  texto: string;
+  criado_por: string;
+  created_at: string;
+}
+
 // Runtime — linha na tabela de Operação (não salva no banco)
 export interface LinhaOperacao {
   id: string; // crypto.randomUUID()

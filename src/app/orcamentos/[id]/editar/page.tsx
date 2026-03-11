@@ -174,8 +174,12 @@ export default function EditarOrcamentoPage() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">DESCRIÇÃO GERAL</label>
-            <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={2} />
+            <ObservacoesSection
+              valor={descricao}
+              onChange={setDescricao}
+              label="DESCRIÇÃO GERAL"
+              placeholder="Ex: Reforma de motor, Manutenção preventiva..."
+            />
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">ITENS</label>
@@ -284,11 +288,12 @@ export default function EditarOrcamentoPage() {
             <span className="text-lg font-bold text-[#CC0000]">{formatCurrency(totalGeral)}</span>
           </div>
           <div className="pt-4">
-            <ObservacoesSection
-              valor={observacoes}
-              onChange={setObservacoes}
-              label="OBSERVAÇÕES"
+            <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">OBSERVAÇÕES INTERNAS</label>
+            <Textarea
               placeholder="Anotações para controle interno..."
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              rows={3}
             />
           </div>
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">

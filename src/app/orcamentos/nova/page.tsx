@@ -362,12 +362,11 @@ export default function NovoOrcamentoPage() {
                     </div>
 
                     <div>
-                        <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">DESCRIÇÃO GERAL</label>
-                        <Textarea
+                        <ObservacoesSection
+                            valor={descricao}
+                            onChange={setDescricao}
+                            label="DESCRIÇÃO GERAL"
                             placeholder="Ex: Reforma de motor, Manutenção preventiva..."
-                            value={descricao}
-                            onChange={(e) => setDescricao(e.target.value)}
-                            rows={2}
                         />
                     </div>
 
@@ -509,11 +508,12 @@ export default function NovoOrcamentoPage() {
                     </div>
 
                     <div className="pt-4">
-                        <ObservacoesSection
-                            valor={observacoes}
-                            onChange={setObservacoes}
-                            label="OBSERVAÇÕES INTERNAS"
+                        <label className="mb-1 block text-sm font-medium text-[#9CA3AF]">OBSERVAÇÕES INTERNAS</label>
+                        <Textarea
                             placeholder="Anotações para controle interno..."
+                            value={observacoes}
+                            onChange={setObservacoes}
+                            rows={3}
                         />
                     </div>
 

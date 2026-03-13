@@ -273,7 +273,7 @@ function NovaOSForm() {
           setEstado(o.cliente_estado || c?.estado || "");
           setEmail(o.cliente_email || c?.email || "");
           setTelefone(o.cliente_telefone || c?.celular || c?.telefone || "");
-          setObservacoes(o.observacoes || "");
+          setObservacoes(o.descricao || o.observacoes || "");
 
           const { data: itens } = await supabase
             .from("cris_tech_orcamento_itens")

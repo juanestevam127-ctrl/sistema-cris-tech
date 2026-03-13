@@ -205,6 +205,8 @@ async function enviarWhatsApp(nome: string, telefone: string, imageUrl: string) 
 
 function NovaOSForm() {
   const router = useRouter();
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const orcamentoId = searchParams?.get("orcamentoId");
   const { usuario } = useAuth();
 
   // Clientes para seleção
@@ -251,9 +253,49 @@ function NovaOSForm() {
         .order("nome");
       if (data) setClientes(data as CrisTechCliente[]);
       setLoadingClientes(false);
+
+      if (orcamentoId) {
+        const { data: orc } = await supabase
+          .from("cris_tech_orcamentos")
+          .select("*, cris_tech_clientes(*)")
+          .eq("id", orcamentoId)
+          .single();
+
+        if (orc) {
+          const o = orc as any;
+          const c = o.cris_tech_clientes as CrisTechCliente;
+
+          setClienteId(o.cliente_id);
+          setClienteNome(o.cliente_nome || c?.nome || "");
+          setCpfCnpj(o.cliente_cpf_cnpj || c?.cpf_cnpj || "");
+          setEndereco(o.cliente_endereco_completo || (c ? `${c.endereco || ""}${c.numero ? `, ${c.numero}` : ""}` : ""));
+          setCidade(o.cliente_cidade || c?.cidade || "");
+          setEstado(o.cliente_estado || c?.estado || "");
+          setEmail(o.cliente_email || c?.email || "");
+          setTelefone(o.cliente_telefone || c?.celular || c?.telefone || "");
+          setObservacoes(o.observacoes || "");
+
+          const { data: itens } = await supabase
+            .from("cris_tech_orcamento_itens")
+            .select("*")
+            .eq("orcamento_id", orcamentoId)
+            .order("ordem");
+
+          if (itens && itens.length > 0) {
+            setMateriais(
+              itens.slice(0, 5).map((i: any) => ({
+                id: crypto.randomUUID(),
+                tipo: i.descricao,
+                quantidade: String(i.quantidade),
+                valor_unitario: String(i.valor_unitario.toFixed(2)).replace(".", ","),
+              }))
+            );
+          }
+        }
+      }
     };
     load();
-  }, []);
+  }, [orcamentoId]);
 
   // ─── Seleção de Cliente ─────────────────────────────────
   const handleSelectCliente = (id: string) => {
@@ -420,6 +462,13 @@ function NovaOSForm() {
       }
 
       toast.success("OS criada com sucesso!");
+
+      if (orcamentoId) {
+        await supabase
+          .from("cris_tech_orcamentos")
+          .update({ status: "aprovado" })
+          .eq("id", orcamentoId);
+      }
 
       // Buscar OS completa com materiais para Renderform
       const { data: osCompleta } = await supabase

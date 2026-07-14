@@ -77,7 +77,7 @@ export interface CrisTechOS {
   numero_os: number;
   data_os: string;
   cliente_id?: string;
-  status: "aberta" | "em_andamento" | "concluida" | "cancelada";
+  status: "aberta" | "em_andamento" | "concluida" | "expirada" | "recusado" | "sem_garantia";
 
   // Dados do cliente (inline)
   cliente_nome: string;

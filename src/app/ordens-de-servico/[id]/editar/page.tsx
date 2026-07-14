@@ -77,6 +77,7 @@ function EditarOSForm() {
   // Campos gerais
   const [numeroOs, setNumeroOs] = useState<number | null>(null);
   const [dataOs, setDataOs] = useState("");
+  const [status, setStatus] = useState<CrisTechOS["status"]>("aberta");
 
   // Dados do cliente
   const [clienteId, setClienteId] = useState("");
@@ -124,6 +125,7 @@ function EditarOSForm() {
           };
           setNumeroOs(os.numero_os);
           setDataOs(os.data_os);
+          setStatus(os.status);
           setClienteId(os.cliente_id || "");
           setClienteNome(os.cliente_nome);
           setCpfCnpj(os.cliente_cpf_cnpj);
@@ -261,6 +263,7 @@ function EditarOSForm() {
           observacoes: observacoes.trim() || null,
           garantia_meses: parseInt(garantiaMeses, 10) || 0,
           taxa_visita: taxaV,
+          status: status,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -344,9 +347,9 @@ function EditarOSForm() {
           </div>
         </div>
 
-        {/* Data */}
-        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6">
-          <div className="max-w-xs">
+        {/* Data e Status */}
+        <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-6 grid gap-6 sm:grid-cols-2">
+          <div>
             <label className={labelInput}>Data da OS *</label>
             <input
               type="date"
@@ -354,6 +357,21 @@ function EditarOSForm() {
               onChange={(e) => setDataOs(e.target.value)}
               className={inputClass}
             />
+          </div>
+          <div>
+            <label className={labelInput}>Status *</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              className={inputClass}
+            >
+              <option value="aberta">Aberta</option>
+              <option value="em_andamento">Em Andamento</option>
+              <option value="concluida">Concluída</option>
+              <option value="expirada">Expirada</option>
+              <option value="recusado">Recusado</option>
+              <option value="sem_garantia">Sem garantia</option>
+            </select>
           </div>
         </div>
 

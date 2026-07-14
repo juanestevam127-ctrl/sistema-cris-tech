@@ -542,7 +542,9 @@ function NovaOSForm() {
               <option value="aberta">Aberta</option>
               <option value="em_andamento">Em Andamento</option>
               <option value="concluida">Concluída</option>
-              <option value="cancelada">Cancelada</option>
+              <option value="expirada">Expirada</option>
+              <option value="recusado">Recusado</option>
+              <option value="sem_garantia">Sem garantia</option>
             </select>
           </div>
         </div>

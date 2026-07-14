@@ -43,17 +43,40 @@ export default function OrdensServicoPage() {
   const router = useRouter();
   const { usuario } = useAuth();
   const [ordens, setOrdens] = useState<CrisTechOS[]>([]);
+  const [totalOrdens, setTotalOrdens] = useState<CrisTechOS[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [filtroGarantia, setFiltroGarantia] = useState<FiltroGarantia>("todas");
+  const [filtroStatus, setFiltroStatus] = useState<string>("todas");
   const [confirmExcluir, setConfirmExcluir] = useState<CrisTechOS | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [pagina, setPagina] = useState(0);
 
   // Removida restrição de role conforme solicitação: "Qualquer usuario pode criar, excluir e editar"
   const podeExcluir = true;
+
+  const handleStatusChange = async (id: string, newStatus: CrisTechOS["status"]) => {
+    try {
+      const { error } = await supabase
+        .from("cris_tech_ordens_servico")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Status atualizado!");
+      setOrdens((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+      );
+      setTotalOrdens((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+      );
+    } catch {
+      toast.error("Erro ao atualizar status.");
+    }
+  };
 
   const fetchOrdens = useCallback(async () => {
     setLoading(true);
@@ -69,6 +92,29 @@ export default function OrdensServicoPage() {
     const { data } = await q;
 
     let lista = (data ?? []) as CrisTechOS[];
+
+    // Auto-recusal check for 'aberta' OS older than 10 days
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+    const tenDaysAgoStr = tenDaysAgo.toISOString();
+
+    const openAndOldOS = lista.filter(
+      (o) => o.status === "aberta" && o.created_at < tenDaysAgoStr
+    );
+
+    if (openAndOldOS.length > 0) {
+      const idsToRecuse = openAndOldOS.map((o) => o.id);
+      await supabase
+        .from("cris_tech_ordens_servico")
+        .update({ status: "recusado", updated_at: new Date().toISOString() })
+        .in("id", idsToRecuse);
+      
+      lista = lista.map((o) =>
+        idsToRecuse.includes(o.id) ? { ...o, status: "recusado" } : o
+      );
+    }
+
+    setTotalOrdens(lista);
 
     // Filtro busca
     if (busca) {
@@ -96,18 +142,28 @@ export default function OrdensServicoPage() {
       });
     }
 
+    // Filtro status
+    if (filtroStatus !== "todas") {
+      lista = lista.filter((o) => o.status === filtroStatus);
+    }
+
     setOrdens(lista);
     setLoading(false);
-  }, [busca, filtroGarantia, dataInicio, dataFim]);
+  }, [busca, filtroGarantia, filtroStatus, dataInicio, dataFim]);
 
   useEffect(() => {
     fetchOrdens();
   }, [fetchOrdens]);
 
   // Resumos
-  const totalGeral = ordens.reduce((s, o) => s + (o.valor_total ?? 0), 0);
-  const concluida = ordens.filter(o => o.status === 'concluida').length;
-  const aberta = ordens.filter(o => o.status === 'aberta' || o.status === 'em_andamento').length;
+  const countAberta = totalOrdens.filter((o) => o.status === "aberta").length;
+  const countEmAndamento = totalOrdens.filter((o) => o.status === "em_andamento").length;
+  const countConcluida = totalOrdens.filter((o) => o.status === "concluida").length;
+  const countExpirada = totalOrdens.filter((o) => o.status === "expirada").length;
+  const countRecusado = totalOrdens.filter((o) => o.status === "recusado").length;
+  const countSemGarantia = totalOrdens.filter((o) => o.status === "sem_garantia").length;
+  const countTodos = totalOrdens.length;
+  const valorTotalPeriodo = totalOrdens.reduce((s, o) => s + (o.valor_total ?? 0), 0);
 
   const paginados = ordens.slice(
     pagina * PAGE_SIZE,
@@ -189,19 +245,39 @@ export default function OrdensServicoPage() {
         </div>
 
         {/* Resumo */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
-            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Abertas / Em Andamento</p>
-            <p className="mt-1 text-2xl font-bold text-white">{aberta}</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Aberta</p>
+            <p className="mt-1 text-2xl font-bold text-white">{countAberta}</p>
           </div>
-          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
-            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Concluídas no período</p>
-            <p className="mt-1 text-2xl font-bold text-green-500">{concluida}</p>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Em Andamento</p>
+            <p className="mt-1 text-2xl font-bold text-amber-500">{countEmAndamento}</p>
           </div>
-          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4">
-            <p className="text-xs uppercase tracking-wider text-[#9CA3AF]">Total no período</p>
-            <p className="mt-1 text-2xl font-bold text-[#CC0000]">
-              {totalGeral.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Concluída</p>
+            <p className="mt-1 text-2xl font-bold text-green-500">{countConcluida}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Expirada</p>
+            <p className="mt-1 text-2xl font-bold text-gray-400">{countExpirada}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Recusado</p>
+            <p className="mt-1 text-2xl font-bold text-red-500">{countRecusado}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Sem garantia</p>
+            <p className="mt-1 text-2xl font-bold text-[#CC0000]">{countSemGarantia}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Todos</p>
+            <p className="mt-1 text-2xl font-bold text-blue-400">{countTodos}</p>
+          </div>
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center col-span-2 sm:col-span-1 lg:col-span-1 min-w-[120px]">
+            <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Total Período</p>
+            <p className="mt-1 text-xl font-bold text-[#CC0000] truncate">
+              {valorTotalPeriodo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </p>
           </div>
         </div>
@@ -264,6 +340,26 @@ export default function OrdensServicoPage() {
               <option value="sem">Sem garantia</option>
             </select>
           </div>
+
+          <div className="w-full sm:w-44">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-[#4B5563]">Status</label>
+            <select
+              value={filtroStatus}
+              onChange={(e) => {
+                setFiltroStatus(e.target.value);
+                setPagina(0);
+              }}
+              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+            >
+              <option value="todas">Todos</option>
+              <option value="aberta">Aberta</option>
+              <option value="em_andamento">Em Andamento</option>
+              <option value="concluida">Concluída</option>
+              <option value="expirada">Expirada</option>
+              <option value="recusado">Recusado</option>
+              <option value="sem_garantia">Sem garantia</option>
+            </select>
+          </div>
         </div>
 
         {/* Tabela */}
@@ -282,7 +378,7 @@ export default function OrdensServicoPage() {
                       "# OS",
                       "Data",
                       "Cliente",
-                      "Cidade / UF",
+                      "Status",
                       "Total",
                       "Garantia",
                       "Imagem",
@@ -324,10 +420,19 @@ export default function OrdensServicoPage() {
                         <td className="px-4 py-3 text-sm text-white max-w-[180px] truncate">
                           {o.cliente_nome || "-"}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#9CA3AF]">
-                          {o.cliente_cidade && o.cliente_estado
-                            ? `${o.cliente_cidade} / ${o.cliente_estado}`
-                            : "-"}
+                        <td className="px-4 py-3 text-sm">
+                          <select
+                            value={o.status}
+                            onChange={(e) => handleStatusChange(o.id, e.target.value as any)}
+                            className="bg-[#0A0A0A] text-white border border-[#2A2A2A] rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#CC0000]"
+                          >
+                            <option value="aberta">Aberta</option>
+                            <option value="em_andamento">Em Andamento</option>
+                            <option value="concluida">Concluída</option>
+                            <option value="expirada">Expirada</option>
+                            <option value="recusado">Recusado</option>
+                            <option value="sem_garantia">Sem garantia</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3 text-sm font-semibold text-[#CC0000]">
                           {formatBRL(o.valor_total ?? 0)}
@@ -422,6 +527,21 @@ export default function OrdensServicoPage() {
                   <div>
                     <p className="text-[10px] uppercase font-bold text-[#4B5563]">Garantia</p>
                     <div className="text-sm">{garantiaLabel(o)}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] uppercase font-bold text-[#4B5563] mb-1">Status</p>
+                    <select
+                      value={o.status}
+                      onChange={(e) => handleStatusChange(o.id, e.target.value as any)}
+                      className="w-full bg-[#0A0A0A] text-white border border-[#2A2A2A] rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#CC0000]"
+                    >
+                      <option value="aberta">Aberta</option>
+                      <option value="em_andamento">Em Andamento</option>
+                      <option value="concluida">Concluída</option>
+                      <option value="expirada">Expirada</option>
+                      <option value="recusado">Recusado</option>
+                      <option value="sem_garantia">Sem garantia</option>
+                    </select>
                   </div>
                 </div>
 

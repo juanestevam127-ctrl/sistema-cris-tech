@@ -245,7 +245,7 @@ export default function OrdensServicoPage() {
         </div>
 
         {/* Resumo */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-9">
           <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center">
             <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Aberta</p>
             <p className="mt-1 text-2xl font-bold text-white">{countAberta}</p>
@@ -274,9 +274,9 @@ export default function OrdensServicoPage() {
             <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Todos</p>
             <p className="mt-1 text-2xl font-bold text-blue-400">{countTodos}</p>
           </div>
-          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center col-span-2 sm:col-span-1 lg:col-span-1 min-w-[120px]">
+          <div className="rounded-xl border border-[#1E1E1E] bg-[#111111] p-4 text-center col-span-2 sm:col-span-1 lg:col-span-2 min-w-[120px]">
             <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Total Período</p>
-            <p className="mt-1 text-xl font-bold text-[#CC0000] truncate">
+            <p className="mt-1 text-xl font-bold text-[#CC0000] whitespace-nowrap">
               {valorTotalPeriodo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </p>
           </div>

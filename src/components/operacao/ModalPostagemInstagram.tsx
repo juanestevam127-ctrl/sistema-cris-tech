@@ -30,6 +30,9 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
   
   const [arquivosUpload, setArquivosUpload] = useState<UploadingFile[]>([]);
   const [enviandoWebhook, setEnviandoWebhook] = useState(false);
+  
+  const [legendaSalva, setLegendaSalva] = useState(false);
+  const [salvandoLegenda, setSalvandoLegenda] = useState(false);
 
   if (!isOpen) return null;
 
@@ -191,6 +194,7 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
       // Reset states
       setLegenda("");
+      setLegendaSalva(false);
       setArquivosUpload([]);
       setDataHoraAgendamento("");
       setAgendamentoTipo("agora");
@@ -205,7 +209,19 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
   const handleResetType = (pubType: "feed" | "stories") => {
     setTipoPublicacao(pubType);
+    setLegenda("");
+    setLegendaSalva(false);
     setArquivosUpload([]);
+  };
+
+  const handleSalvarLegenda = () => {
+    if (!legenda.trim()) return;
+    setSalvandoLegenda(true);
+    setTimeout(() => {
+      setSalvandoLegenda(false);
+      setLegendaSalva(true);
+      toast.success("Legenda salva!");
+    }, 800);
   };
 
   return (
@@ -391,16 +407,40 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
           {/* Legenda (Caption) */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-white">
-              Legenda / Texto da Publicação
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-white">
+                Legenda / Texto da Publicação
+              </label>
+              {legenda.trim() && (
+                <button
+                  type="button"
+                  onClick={handleSalvarLegenda}
+                  disabled={salvandoLegenda || legendaSalva}
+                  className={`text-xs px-2.5 py-1 rounded font-semibold transition ${
+                    legendaSalva 
+                      ? "bg-green-900/40 text-green-400 border border-green-900/50" 
+                      : "bg-[#CC0000] text-white hover:bg-[#A30000]"
+                  }`}
+                >
+                  {salvandoLegenda ? "Salvando..." : legendaSalva ? "✓ Salva" : "Salvar Legenda"}
+                </button>
+              )}
+            </div>
             <textarea
               value={legenda}
-              onChange={(e) => setLegenda(e.target.value)}
+              onChange={(e) => {
+                setLegenda(e.target.value);
+                setLegendaSalva(false);
+              }}
               placeholder="Escreva a legenda aqui..."
               rows={4}
               className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
             />
+            {legenda.trim() && !legendaSalva && (
+              <p className="text-[10px] text-amber-500 mt-1">
+                ⚠️ Você alterou a legenda. Clique em "Salvar Legenda" para poder publicar.
+              </p>
+            )}
           </div>
 
           {/* Tipo de Agendamento */}
@@ -464,7 +504,7 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
             variant="primary"
             onClick={handleEnviar}
             loading={enviandoWebhook}
-            disabled={arquivosUpload.length === 0}
+            disabled={arquivosUpload.length === 0 || (legenda.trim() !== "" && !legendaSalva)}
           >
             {agendamentoTipo === "agora" ? "Publicar no Instagram" : "Agendar Publicação"}
           </Button>

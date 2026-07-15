@@ -3,8 +3,17 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET ?? "cris-tech-images";
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
+const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+const ALLOWED = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "video/mpeg",
+  "video/x-matroska",
+  "video/webm"
+];
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,14 +45,14 @@ export async function POST(request: NextRequest) {
 
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
-        { error: "Arquivo deve ter no máximo 5MB." },
+        { error: "Arquivo deve ter no máximo 100MB." },
         { status: 400 }
       );
     }
 
     if (!ALLOWED.includes(file.type)) {
       return NextResponse.json(
-        { error: "Use JPG, PNG ou WEBP." },
+        { error: "Use imagens (JPG, PNG, WEBP) ou vídeos (MP4, MOV)." },
         { status: 400 }
       );
     }

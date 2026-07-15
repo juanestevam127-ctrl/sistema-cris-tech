@@ -7,6 +7,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { TabelaDinamica } from "@/components/operacao/TabelaDinamica";
 import { Button } from "@/components/ui/Button";
 import type { CrisTechLayout, LinhaOperacao } from "@/types";
+import { ModalPostagemInstagram } from "@/components/operacao/ModalPostagemInstagram";
+import { Instagram } from "lucide-react";
 
 function truncarUrl(url: string, max = 30) {
   if (url.length <= max) return url;
@@ -19,6 +21,7 @@ export default function OperacaoPage() {
   const [layoutSelecionado, setLayoutSelecionado] = useState<CrisTechLayout | null>(null);
   const [linhas, setLinhas] = useState<LinhaOperacao[]>([]);
   const [enviando, setEnviando] = useState(false);
+  const [isModalInstagramOpen, setIsModalInstagramOpen] = useState(false);
 
   const adicionarLinha = useCallback(() => {
     const campos = layoutSelecionado?.campos ?? [];
@@ -120,14 +123,24 @@ export default function OperacaoPage() {
               </span>
             )}
           </div>
-          <Button
-            variant="primary"
-            onClick={handleGerarImagens}
-            loading={enviando}
-            disabled={!layoutSelecionado || linhas.length === 0}
-          >
-            Gerar Imagens
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex items-center gap-2 border-[#E1306C]/30 text-white hover:bg-[#E1306C]/10"
+              onClick={() => setIsModalInstagramOpen(true)}
+            >
+              <Instagram size={18} className="text-[#E1306C]" />
+              Postar no Instagram
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleGerarImagens}
+              loading={enviando}
+              disabled={!layoutSelecionado || linhas.length === 0}
+            >
+              Gerar Imagens
+            </Button>
+          </div>
         </div>
 
         {layoutSelecionado && (
@@ -138,6 +151,11 @@ export default function OperacaoPage() {
             adicionarLinha={adicionarLinha}
           />
         )}
+
+        <ModalPostagemInstagram
+          isOpen={isModalInstagramOpen}
+          onClose={() => setIsModalInstagramOpen(false)}
+        />
       </div>
     </AppLayout>
   );

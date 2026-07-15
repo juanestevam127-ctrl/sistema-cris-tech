@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS cris_tech_postagens_agendadas (
 -- RLS
 ALTER TABLE cris_tech_postagens_agendadas ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Autenticados gerenciam postagens" ON cris_tech_postagens_agendadas;
 CREATE POLICY "Autenticados gerenciam postagens" ON cris_tech_postagens_agendadas
   FOR ALL USING (auth.role() = 'authenticated');
 
@@ -28,6 +29,12 @@ CREATE POLICY "Autenticados gerenciam postagens" ON cris_tech_postagens_agendada
 -- Habilita as extensões pg_cron e pg_net no Supabase
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Remove o job antigo se existir para evitar erro de duplicidade
+SELECT cron.unschedule('processar-postagens-instagram') 
+WHERE EXISTS (
+  SELECT 1 FROM cron.job WHERE jobname = 'processar-postagens-instagram'
+);
 
 -- Agenda a execução a cada minuto chamando a nossa rota de API
 SELECT cron.schedule(

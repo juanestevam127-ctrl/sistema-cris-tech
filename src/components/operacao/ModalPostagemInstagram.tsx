@@ -155,34 +155,48 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
     setEnviandoWebhook(true);
     try {
-      const payload = {
-        tipo_publicacao: tipoPublicacao,
-        tipo_midia: isStories ? tipoMidiaStories : tipoMidiaFeed,
-        legenda: legenda,
-        disparar_agora: agendamentoTipo === "agora",
-        agendado_para: agendamentoTipo === "agendado" ? dataHoraAgendamento : null,
-        midias: urlsValidas,
-      };
+      const dataAgendamento = agendamentoTipo === "agora" ? new Date().toISOString() : new Date(dataHoraAgendamento).toISOString();
+      
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
 
-      const res = await fetch("https://criadordigital-n8n-webhook.5rqumh.easypanel.host/webhook/postagem-insta-cristech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      // 1. Salvar no banco de dados do Supabase
+      const { error: dbError } = await supabase
+        .from("cris_tech_postagens_agendadas")
+        .insert({
+          tipo_publicacao: tipoPublicacao,
+          tipo_midia: isStories ? tipoMidiaStories : tipoMidiaFeed,
+          legenda: legenda || null,
+          midias: urlsValidas,
+          agendado_para: dataAgendamento,
+          status: "pendente",
+          criado_por: userId || null,
+        });
 
-      if (res.ok) {
-        toast.success("Postagem enviada / agendada com sucesso!");
-        // Reset states
-        setLegenda("");
-        setArquivosUpload([]);
-        setDataHoraAgendamento("");
-        setAgendamentoTipo("agora");
-        onClose();
+      if (dbError) throw dbError;
+
+      // 2. Se for para postar agora, dispara imediatamente através do nosso endpoint de cron
+      if (agendamentoTipo === "agora") {
+        const triggerRes = await fetch("/api/cron/process-posts");
+        const triggerData = await triggerRes.json();
+        
+        if (!triggerRes.ok) {
+          throw new Error(triggerData.error ?? "Erro ao processar postagem imediata.");
+        }
+        
+        toast.success("Postagem enviada com sucesso!");
       } else {
-        throw new Error("Erro na resposta do servidor.");
+        toast.success("Postagem agendada com sucesso!");
       }
-    } catch (err) {
-      toast.error("Erro ao enviar postagem para o webhook.");
+
+      // Reset states
+      setLegenda("");
+      setArquivosUpload([]);
+      setDataHoraAgendamento("");
+      setAgendamentoTipo("agora");
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar postagem.");
       console.error(err);
     } finally {
       setEnviandoWebhook(false);

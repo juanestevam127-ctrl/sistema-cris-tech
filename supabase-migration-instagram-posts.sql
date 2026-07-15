@@ -50,3 +50,37 @@ SELECT cron.schedule(
   );
   $$
 );
+
+-- ============================================================
+-- FIX: Correção de Recursão Infinita em cris_tech_usuarios
+-- ============================================================
+-- Remove a política antiga do tipo ALL que causava loops nas consultas
+DROP POLICY IF EXISTS "Somente master gerencia usuarios" ON cris_tech_usuarios;
+DROP POLICY IF EXISTS "Somente master gerencia usuarios insert" ON cris_tech_usuarios;
+DROP POLICY IF EXISTS "Somente master gerencia usuarios update" ON cris_tech_usuarios;
+DROP POLICY IF EXISTS "Somente master gerencia usuarios delete" ON cris_tech_usuarios;
+
+-- Cria políticas específicas para gravação separadas do SELECT, evitando loops de recursão
+CREATE POLICY "Somente master gerencia usuarios insert" ON cris_tech_usuarios
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role = 'master'
+    )
+  );
+
+CREATE POLICY "Somente master gerencia usuarios update" ON cris_tech_usuarios
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role = 'master'
+    )
+  );
+
+CREATE POLICY "Somente master gerencia usuarios delete" ON cris_tech_usuarios
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM cris_tech_usuarios 
+      WHERE id = auth.uid() AND role = 'master'
+    )
+  );

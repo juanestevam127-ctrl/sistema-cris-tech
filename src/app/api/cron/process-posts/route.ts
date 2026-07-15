@@ -32,6 +32,7 @@ export async function GET() {
           disparar_agora: true,
           agendado_para: post.agendado_para,
           midias: post.midias,
+          capa_reels: post.capa_reels || null,
         };
 
         const res = await fetch("https://criadordigital-n8n-webhook.5rqumh.easypanel.host/webhook/postagem-insta-cristech", {

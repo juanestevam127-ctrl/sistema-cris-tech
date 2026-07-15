@@ -20,6 +20,7 @@ interface UploadingFile {
 
 export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagramProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const capaInputRef = useRef<HTMLInputElement>(null);
   const [tipoPublicacao, setTipoPublicacao] = useState<"feed" | "stories">("feed");
   const [tipoMidiaFeed, setTipoMidiaFeed] = useState<"imagem_estatica" | "carrossel" | "reels">("imagem_estatica");
   const [tipoMidiaStories, setTipoMidiaStories] = useState<"imagem" | "video">("imagem");
@@ -33,6 +34,9 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
   
   const [legendaSalva, setLegendaSalva] = useState(false);
   const [salvandoLegenda, setSalvandoLegenda] = useState(false);
+
+  const [capaReels, setCapaReels] = useState("");
+  const [uploadingCapa, setUploadingCapa] = useState(false);
 
   if (!isOpen) return null;
 
@@ -164,15 +168,17 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
       const userId = userData.user?.id;
 
       // 1. Salvar no banco de dados do Supabase
+      const isReels = tipoPublicacao === "feed" && tipoMidiaFeed === "reels";
       const { error: dbError } = await supabase
         .from("cris_tech_postagens_agendadas")
         .insert({
           tipo_publicacao: tipoPublicacao,
           tipo_midia: isStories ? tipoMidiaStories : tipoMidiaFeed,
-          legenda: legenda || null,
+          legenda: isStories ? null : (legenda || null),
           midias: urlsValidas,
           agendado_para: dataAgendamento,
           status: "pendente",
+          capa_reels: isReels ? (capaReels || null) : null,
           criado_por: userId || null,
         });
 
@@ -198,6 +204,7 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
       setArquivosUpload([]);
       setDataHoraAgendamento("");
       setAgendamentoTipo("agora");
+      setCapaReels("");
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar postagem.");
@@ -212,6 +219,7 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
     setLegenda("");
     setLegendaSalva(false);
     setArquivosUpload([]);
+    setCapaReels("");
   };
 
   const handleSalvarLegenda = () => {
@@ -222,6 +230,48 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
       setLegendaSalva(true);
       toast.success("Legenda salva!");
     }, 800);
+  };
+
+  const handleCapaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("A capa deve ter no máximo 10MB.");
+      return;
+    }
+    if (!allowed.includes(file.type)) {
+      toast.error("Use JPG, PNG ou WEBP.");
+      return;
+    }
+
+    setUploadingCapa(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sessão expirada.");
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("layoutId", "instagram_cover");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro no upload.");
+
+      setCapaReels(data.url);
+      toast.success("Capa enviada!");
+    } catch (err: any) {
+      toast.error(`Falha no upload da capa: ${err.message}`);
+    } finally {
+      setUploadingCapa(false);
+    }
   };
 
   const handleMover = (index: number, direcao: "esquerda" | "direita") => {
@@ -505,43 +555,102 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
             )}
           </div>
 
-          {/* Legenda (Caption) */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-white">
-                Legenda / Texto da Publicação
+          {/* Capa do Reels (Visible only on Reels) */}
+          {!isStories && tipoMidiaFeed === "reels" && (
+            <div className="rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] p-4 space-y-3">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-white">
+                Capa do Reels (Opcional - Imagem Estática)
               </label>
-              {legenda.trim() && (
-                <button
-                  type="button"
-                  onClick={handleSalvarLegenda}
-                  disabled={salvandoLegenda || legendaSalva}
-                  className={`text-xs px-2.5 py-1 rounded font-semibold transition ${
-                    legendaSalva 
-                      ? "bg-green-900/40 text-green-400 border border-green-900/50" 
-                      : "bg-[#CC0000] text-white hover:bg-[#A30000]"
-                  }`}
-                >
-                  {salvandoLegenda ? "Salvando..." : legendaSalva ? "✓ Salva" : "Salvar Legenda"}
-                </button>
+              
+              <div className="flex items-center gap-4">
+                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-[#111] border border-[#1E1E1E]">
+                  {capaReels ? (
+                    <img src={capaReels} alt="Capa" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center p-1">
+                      {uploadingCapa ? (
+                        <Loader2 size={16} className="animate-spin text-[#CC0000]" />
+                      ) : (
+                        <span className="text-[10px] text-[#6B7280]">Sem capa</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-2">
+                  <input
+                    ref={capaInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCapaUpload}
+                    className="hidden"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      className="text-xs py-1 px-3 h-8"
+                      onClick={() => capaInputRef.current?.click()}
+                      disabled={uploadingCapa}
+                    >
+                      {capaReels ? "Alterar Capa" : "Selecionar Capa"}
+                    </Button>
+                    {capaReels && (
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        className="text-xs py-1 px-3 h-8 text-red-400 border border-red-900/30"
+                        onClick={() => setCapaReels("")}
+                      >
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-[#6B7280]">Use JPG, PNG ou WEBP para a capa do vídeo.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Legenda (Caption) */}
+          {!isStories && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-white">
+                  Legenda / Texto da Publicação
+                </label>
+                {legenda.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleSalvarLegenda}
+                    disabled={salvandoLegenda || legendaSalva}
+                    className={`text-xs px-2.5 py-1 rounded font-semibold transition ${
+                      legendaSalva 
+                        ? "bg-green-900/40 text-green-400 border border-green-900/50" 
+                        : "bg-[#CC0000] text-white hover:bg-[#A30000]"
+                    }`}
+                  >
+                    {salvandoLegenda ? "Salvando..." : legendaSalva ? "✓ Salva" : "Salvar Legenda"}
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={legenda}
+                onChange={(e) => {
+                  setLegenda(e.target.value);
+                  setLegendaSalva(false);
+                }}
+                placeholder="Escreva a legenda aqui..."
+                rows={4}
+                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+              />
+              {legenda.trim() && !legendaSalva && (
+                <p className="text-[10px] text-amber-500 mt-1">
+                  ⚠️ Você alterou a legenda. Clique em "Salvar Legenda" para poder publicar.
+                </p>
               )}
             </div>
-            <textarea
-              value={legenda}
-              onChange={(e) => {
-                setLegenda(e.target.value);
-                setLegendaSalva(false);
-              }}
-              placeholder="Escreva a legenda aqui..."
-              rows={4}
-              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
-            />
-            {legenda.trim() && !legendaSalva && (
-              <p className="text-[10px] text-amber-500 mt-1">
-                ⚠️ Você alterou a legenda. Clique em "Salvar Legenda" para poder publicar.
-              </p>
-            )}
-          </div>
+          )}
 
           {/* Tipo de Agendamento */}
           <div>
@@ -604,7 +713,11 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
             variant="primary"
             onClick={handleEnviar}
             loading={enviandoWebhook}
-            disabled={arquivosUpload.length === 0 || (legenda.trim() !== "" && !legendaSalva)}
+            disabled={
+              arquivosUpload.length === 0 || 
+              (!isStories && legenda.trim() !== "" && !legendaSalva) ||
+              uploadingCapa
+            }
           >
             {agendamentoTipo === "agora" ? "Publicar no Instagram" : "Agendar Publicação"}
           </Button>

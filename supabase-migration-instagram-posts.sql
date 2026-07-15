@@ -12,9 +12,13 @@ CREATE TABLE IF NOT EXISTS cris_tech_postagens_agendadas (
     CHECK (status IN ('pendente', 'concluido', 'erro')),
   erro_mensagem TEXT,
   criado_por UUID REFERENCES cris_tech_usuarios(id) ON DELETE SET NULL,
+  capa_reels TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Garantir que a coluna capa_reels exista se a tabela já foi criada anteriormente
+ALTER TABLE cris_tech_postagens_agendadas ADD COLUMN IF NOT EXISTS capa_reels TEXT;
 
 -- RLS
 ALTER TABLE cris_tech_postagens_agendadas ENABLE ROW LEVEL SECURITY;

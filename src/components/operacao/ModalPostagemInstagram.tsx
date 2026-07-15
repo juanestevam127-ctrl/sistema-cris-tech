@@ -66,37 +66,38 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
   const uploadFile = async (file: File, index: number) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        toast.error("Sessão expirada. Faça login novamente.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("layoutId", "instagram");
+      const BUCKET = "cris-tech-images";
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const path = `uploads/instagram/${Date.now()}_${safeName}`;
 
       setArquivosUpload((prev) => {
         const copy = [...prev];
-        copy[index] = { ...copy[index], progress: 10 };
+        copy[index] = { ...copy[index], progress: 30 };
         return copy;
       });
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "Erro ao fazer upload.");
+      if (error) {
+        throw new Error(error.message || "Erro no upload.");
       }
 
       setArquivosUpload((prev) => {
         const copy = [...prev];
-        copy[index] = { name: file.name, progress: 100, url: data.url };
+        copy[index] = { ...copy[index], progress: 70 };
+        return copy;
+      });
+
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+
+      setArquivosUpload((prev) => {
+        const copy = [...prev];
+        copy[index] = { name: file.name, progress: 100, url: urlData.publicUrl };
         return copy;
       });
     } catch (err: any) {
@@ -248,24 +249,23 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
     setUploadingCapa(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Sessão expirada.");
+      const BUCKET = "cris-tech-images";
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const path = `uploads/instagram_covers/${Date.now()}_${safeName}`;
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("layoutId", "instagram_cover");
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      if (error) {
+        throw new Error(error.message || "Erro no upload.");
+      }
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro no upload.");
-
-      setCapaReels(data.url);
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      setCapaReels(urlData.publicUrl);
       toast.success("Capa enviada!");
     } catch (err: any) {
       toast.error(`Falha no upload da capa: ${err.message}`);

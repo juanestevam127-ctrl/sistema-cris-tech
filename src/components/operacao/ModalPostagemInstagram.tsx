@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { X, Upload, Film, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Film, Image as ImageIcon, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/Button";
@@ -224,6 +224,19 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
     }, 800);
   };
 
+  const handleMover = (index: number, direcao: "esquerda" | "direita") => {
+    setArquivosUpload((prev) => {
+      const copy = [...prev];
+      const targetIndex = direcao === "esquerda" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= copy.length) return prev;
+      
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy;
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-[#1E1E1E] bg-[#111111] shadow-2xl animate-in fade-in zoom-in-95 duration-200">
@@ -370,37 +383,124 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
             {/* Upload list */}
             {arquivosUpload.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {arquivosUpload.map((file, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-3 py-2"
-                  >
-                    <div className="min-w-0 flex-1 pr-4">
-                      <p className="truncate text-xs font-medium text-white">{file.name}</p>
-                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#1E1E1E]">
+              <div className="mt-4">
+                {isCarrossel ? (
+                  // Grid View for Carousel Reordering
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    {arquivosUpload.map((file, idx) => {
+                      return (
                         <div
-                          className={`h-full transition-all duration-300 ${
-                            file.error ? "bg-red-600" : "bg-[#CC0000]"
-                          }`}
-                          style={{ width: `${file.progress}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#6B7280]">
-                        {file.error ? "Erro" : file.progress === 100 ? "Pronto" : `${file.progress}%`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoverArquivo(idx)}
-                        className="text-[#6B7280] hover:text-red-500"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
+                          key={idx}
+                          className="relative flex flex-col rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] p-2 hover:border-[#333] transition"
+                        >
+                          {/* Order Badge */}
+                          <div className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#CC0000] text-[10px] font-bold text-white shadow shadow-black">
+                            {idx + 1}
+                          </div>
+
+                          {/* Image Thumbnail */}
+                          <div className="relative aspect-square w-full overflow-hidden rounded bg-[#111] border border-[#1E1E1E]">
+                            {file.url ? (
+                              <img src={file.url} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
+                                <Loader2 size={16} className="animate-spin text-[#CC0000] mb-1" />
+                                <span className="text-[8px] text-[#6B7280]">Enviando...</span>
+                              </div>
+                            )}
+                            {/* Upload Progress Overlay */}
+                            {file.progress < 100 && !file.error && (
+                              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                <span className="text-[10px] text-white font-bold">{file.progress}%</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Control Row */}
+                          <div className="mt-2 flex items-center justify-between gap-1 text-xs">
+                            <div className="flex gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleMover(idx, "esquerda")}
+                                disabled={idx === 0 || file.progress < 100}
+                                className="flex h-6 w-6 items-center justify-center rounded bg-[#1E1E1E] text-white hover:bg-[#333] disabled:opacity-20 disabled:cursor-not-allowed font-bold"
+                                title="Mover para esquerda"
+                              >
+                                ◀
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMover(idx, "direita")}
+                                disabled={idx === arquivosUpload.length - 1 || file.progress < 100}
+                                className="flex h-6 w-6 items-center justify-center rounded bg-[#1E1E1E] text-white hover:bg-[#333] disabled:opacity-20 disabled:cursor-not-allowed font-bold"
+                                title="Mover para direita"
+                              >
+                                ▶
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoverArquivo(idx)}
+                              className="flex h-6 w-6 items-center justify-center rounded bg-red-600/10 text-red-400 hover:bg-red-600 hover:text-white"
+                              title="Remover"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                ) : (
+                  // Single Media Preview
+                  <div className="space-y-3">
+                    {arquivosUpload.map((file, idx) => {
+                      const isVideo = isVideoOnly;
+                      return (
+                        <div
+                          key={idx}
+                          className="flex flex-col sm:flex-row items-center gap-4 rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] p-4"
+                        >
+                          {/* Preview box */}
+                          <div className="relative flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#1E1E1E] bg-[#111]">
+                            {file.url ? (
+                              isVideo ? (
+                                <video src={file.url} controls className="h-full w-full object-cover" />
+                              ) : (
+                                <img src={file.url} alt="Preview" className="h-full w-full object-cover" />
+                              )
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-center">
+                                <Loader2 size={24} className="animate-spin text-[#CC0000] mb-2" />
+                                <span className="text-xs text-[#6B7280]">Fazendo upload...</span>
+                              </div>
+                            )}
+                            {file.progress < 100 && !file.error && (
+                              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                <span className="text-sm text-white font-bold">{file.progress}%</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info & action */}
+                          <div className="flex-1 w-full min-w-0 space-y-1">
+                            <p className="truncate text-sm font-semibold text-white">{file.name}</p>
+                            <p className="text-xs text-[#6B7280]">
+                              {file.error ? "Erro ao enviar" : file.progress === 100 ? "Upload concluído" : `Enviando... ${file.progress}%`}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoverArquivo(idx)}
+                              className="mt-2 flex items-center gap-1.5 rounded-lg border border-[#1E1E1E] bg-[#111] px-3 py-1.5 text-xs text-red-400 hover:bg-red-950/20 transition"
+                            >
+                              <X size={12} /> Remover mídia
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

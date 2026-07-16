@@ -8,7 +8,7 @@ import { ModalConfirmacao } from "@/components/manutencao/ModalConfirmacao";
 import { supabase } from "@/lib/supabaseClient";
 import { Send, MessageSquare, Image as ImageIcon, Trash2, Play, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import toast from "react-hot-toast";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Disparo {
   id: string;
@@ -210,7 +210,7 @@ export default function DisparosPage() {
                           </span>
                           {d.agendado_para && new Date(d.agendado_para) > new Date() && (
                             <span className="text-[10px] text-[#9CA3AF] mt-0.5 font-medium">
-                              {formatDate(d.agendado_para)}
+                              {formatDateTime(d.agendado_para)}
                             </span>
                           )}
                         </div>

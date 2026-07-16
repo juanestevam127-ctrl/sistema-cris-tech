@@ -21,6 +21,17 @@ export function formatDate(date: string | Date | null | undefined): string {
   return format(d, "dd/MM/yyyy", { locale: ptBR });
 }
 
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return "—";
+  let d: Date;
+  if (typeof date === "string") {
+    d = new Date(date);
+  } else {
+    d = date;
+  }
+  return format(d, "dd/MM/yyyy HH:mm", { locale: ptBR });
+}
+
 export function formatCpfCnpj(val: string | null | undefined): string {
   if (!val) return "";
   const v = val.replace(/\D/g, "");

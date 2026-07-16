@@ -17,6 +17,7 @@ interface Disparo {
   imagem_url?: string;
   status: "pendente" | "enviado" | "erro";
   erro_mensagem?: string;
+  agendado_para?: string;
   created_at: string;
 }
 
@@ -203,9 +204,16 @@ export default function DisparosPage() {
                         </span>
                       )}
                       {d.status === "pendente" && (
-                        <span className="flex items-center gap-1 text-amber-400 text-xs font-semibold" title="Salvo como rascunho.">
-                          <Clock size={12} /> Rascunho
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="flex items-center gap-1 text-amber-400 text-xs font-semibold">
+                            <Clock size={12} /> {d.agendado_para && new Date(d.agendado_para) > new Date() ? "Agendado" : "Rascunho"}
+                          </span>
+                          {d.agendado_para && new Date(d.agendado_para) > new Date() && (
+                            <span className="text-[10px] text-[#9CA3AF] mt-0.5 font-medium">
+                              {formatDate(d.agendado_para)}
+                            </span>
+                          )}
+                        </div>
                       )}
                       {d.status === "erro" && (
                         <span className="flex items-center gap-1 text-red-400 text-xs font-semibold cursor-help" title={d.erro_mensagem || "Erro no envio"}>

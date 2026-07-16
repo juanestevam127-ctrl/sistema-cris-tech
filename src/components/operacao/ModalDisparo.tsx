@@ -22,6 +22,9 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
   const [enviando, setEnviando] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
+  const [agendamentoTipo, setAgendamentoTipo] = useState<"agora" | "agendado">("agora");
+  const [dataHoraAgendamento, setDataHoraAgendamento] = useState("");
+
   if (!isOpen) return null;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +85,7 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
           texto: texto.trim(),
           imagem_url: tipo === "texto_imagem" ? imagemUrl : null,
           status: "pendente",
+          agendado_para: agendamentoTipo === "agendado" && dataHoraAgendamento ? new Date(dataHoraAgendamento).toISOString() : new Date().toISOString(),
           criado_por: userId || null,
         });
 
@@ -90,6 +94,8 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
       toast.success("Rascunho do disparo salvo!");
       setTexto("");
       setImagemUrl("");
+      setDataHoraAgendamento("");
+      setAgendamentoTipo("agora");
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -108,71 +114,56 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
       toast.error("Suba uma imagem para o disparo de Imagem + Texto.");
       return;
     }
+    if (agendamentoTipo === "agendado" && !dataHoraAgendamento) {
+      toast.error("Informe a data e hora do agendamento.");
+      return;
+    }
 
     setEnviando(true);
-    let disparoId = null;
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
 
-      // 1. Criar registro no banco
-      const { data: inserted, error: dbError } = await supabase
+      const dataAgendamento = agendamentoTipo === "agora" 
+        ? new Date().toISOString() 
+        : new Date(dataHoraAgendamento).toISOString();
+
+      // 1. Salvar no banco
+      const { error: dbError } = await supabase
         .from("cris_tech_disparos")
         .insert({
           tipo,
           texto: texto.trim(),
           imagem_url: tipo === "texto_imagem" ? imagemUrl : null,
           status: "pendente",
+          agendado_para: dataAgendamento,
           criado_por: userId || null,
-        })
-        .select("id")
-        .single();
+        });
 
-      if (dbError || !inserted) throw dbError || new Error("Erro ao criar registro.");
-      disparoId = inserted.id;
+      if (dbError) throw dbError;
 
-      // 2. Chamar o webhook
-      const payload = {
-        tipo,
-        texto: texto.trim(),
-        imagem_url: tipo === "texto_imagem" ? imagemUrl : null,
-      };
-
-      const res = await fetch("https://criadordigital-n8n-webhook.5rqumh.easypanel.host/webhook/disparo-grupos-cristech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        // Atualiza status para enviado
-        await supabase
-          .from("cris_tech_disparos")
-          .update({ status: "enviado", updated_at: new Date().toISOString() })
-          .eq("id", disparoId);
+      // 2. Se for para disparar agora, executa imediatamente
+      if (agendamentoTipo === "agora") {
+        const triggerRes = await fetch("/api/cron/process-dispatches");
+        const triggerData = await triggerRes.json();
+        
+        if (!triggerRes.ok) {
+          throw new Error(triggerData.error ?? "Erro ao processar disparo imediato.");
+        }
         
         toast.success("Disparo enviado com sucesso!");
-        setTexto("");
-        setImagemUrl("");
-        onSuccess();
-        onClose();
       } else {
-        const textErr = await res.text();
-        throw new Error(textErr || "Erro de resposta da webhook.");
+        toast.success("Disparo agendado com sucesso!");
       }
-    } catch (err: any) {
-      toast.error(`Falha no disparo: ${err.message}`);
-      if (disparoId) {
-        await supabase
-          .from("cris_tech_disparos")
-          .update({
-            status: "erro",
-            erro_mensagem: err.message || "Erro de envio",
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", disparoId);
-      }
+
+      setTexto("");
+      setImagemUrl("");
+      setDataHoraAgendamento("");
+      setAgendamentoTipo("agora");
       onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao realizar disparo.");
     } finally {
       setEnviando(false);
     }
@@ -298,6 +289,52 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
             />
           </div>
 
+          {/* Tipo de Envio / Agendamento */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+              Tipo de Envio
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAgendamentoTipo("agora")}
+                className={`rounded-lg py-2 border transition font-semibold text-sm ${
+                  agendamentoTipo === "agora"
+                    ? "bg-[#1E1E1E] text-white border-[#CC0000]"
+                    : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
+                }`}
+              >
+                Disparar Agora
+              </button>
+              <button
+                type="button"
+                onClick={() => setAgendamentoTipo("agendado")}
+                className={`rounded-lg py-2 border transition font-semibold text-sm ${
+                  agendamentoTipo === "agendado"
+                    ? "bg-[#1E1E1E] text-white border-[#CC0000]"
+                    : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
+                }`}
+              >
+                Agendar Horário
+              </button>
+            </div>
+          </div>
+
+          {/* Datetime selector */}
+          {agendamentoTipo === "agendado" && (
+            <div className="animate-in slide-in-from-top-3 duration-200">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                Data e Hora de Agendamento
+              </label>
+              <input
+                type="datetime-local"
+                value={dataHoraAgendamento}
+                onChange={(e) => setDataHoraAgendamento(e.target.value)}
+                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+              />
+            </div>
+          )}
+
         </div>
 
         {/* Footer */}
@@ -323,7 +360,7 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
             loading={enviando}
             disabled={salvando || uploadingImage || !texto.trim()}
           >
-            Disparar Mensagem
+            {agendamentoTipo === "agora" ? "Disparar Mensagem" : "Agendar Disparo"}
           </Button>
         </div>
 

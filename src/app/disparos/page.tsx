@@ -77,7 +77,7 @@ export default function DisparosPage() {
     try {
       const { error: dbErr } = await supabase
         .from("cris_tech_disparos")
-        .update({ agendado_para: new Date().toISOString() })
+        .update({ agendado_para: new Date(Date.now() - 60000).toISOString() })
         .eq("id", disparo.id);
 
       if (dbErr) throw dbErr;

@@ -112,8 +112,8 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
       return;
     }
 
-    const targetTime = agendamentoTipo === "agora" ? new Date() : new Date(dataHoraAgendamento);
-    const valid = await validarHorarioDisparo(targetTime);
+    const targetTime = agendamentoTipo === "agora" ? new Date(Date.now() - 60000) : new Date(dataHoraAgendamento);
+    const valid = await validarHorarioDisparo(agendamentoTipo === "agora" ? new Date() : targetTime);
     if (!valid) return;
 
     setSalvando(true);
@@ -163,8 +163,8 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
       return;
     }
 
-    const targetTime = agendamentoTipo === "agora" ? new Date() : new Date(dataHoraAgendamento);
-    const valid = await validarHorarioDisparo(targetTime);
+    const targetTime = agendamentoTipo === "agora" ? new Date(Date.now() - 60000) : new Date(dataHoraAgendamento);
+    const valid = await validarHorarioDisparo(agendamentoTipo === "agora" ? new Date() : targetTime);
     if (!valid) return;
 
     setEnviando(true);

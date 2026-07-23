@@ -78,7 +78,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           <Link
             href="/clientes"
             onClick={onClose}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname.startsWith("/clientes")
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${(pathname === "/clientes" || pathname.startsWith("/clientes/"))
               ? "bg-[#A30000] text-white hover:bg-[#A30000]"
               : ""
               }`}

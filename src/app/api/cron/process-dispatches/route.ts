@@ -25,10 +25,14 @@ export async function GET() {
 
     for (const d of dispatches) {
       try {
+        // Formata as quebras de linha com literal \n e remove caracteres extras se necessário
+        const textoFormatado = d.texto ? d.texto.replace(/\r?\n/g, "\\n") : null;
+
         const payload = {
           tipo: d.tipo,
-          texto: d.texto,
-          imagem_url: d.tipo === "texto_imagem" ? d.imagem_url : null,
+          texto: textoFormatado,
+          imagem_url: (d.tipo === "texto_imagem" || d.tipo === "imagem") ? d.imagem_url : null,
+          destinatario: d.destinatario || "grupo",
         };
 
         const res = await fetch("https://criadordigital-n8n-webhook.5rqumh.easypanel.host/webhook/disparo-grupos-cristech", {

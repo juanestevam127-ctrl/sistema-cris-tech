@@ -12,9 +12,10 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Disparo {
   id: string;
-  tipo: "texto" | "texto_imagem";
+  tipo: "texto" | "texto_imagem" | "imagem";
   texto: string;
   imagem_url?: string;
+  destinatario?: "grupo" | "clientes";
   status: "pendente" | "enviado" | "erro";
   erro_mensagem?: string;
   agendado_para?: string;
@@ -74,30 +75,22 @@ export default function DisparosPage() {
   const dispararRascunho = async (disparo: Disparo) => {
     setDisparandoFila(disparo.id);
     try {
-      const payload = {
-        tipo: disparo.tipo,
-        texto: disparo.texto,
-        imagem_url: disparo.tipo === "texto_imagem" ? disparo.imagem_url : null,
-      };
+      const { error: dbErr } = await supabase
+        .from("cris_tech_disparos")
+        .update({ agendado_para: new Date().toISOString() })
+        .eq("id", disparo.id);
 
-      const res = await fetch("https://criadordigital-n8n-webhook.5rqumh.easypanel.host/webhook/disparo-grupos-cristech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      if (dbErr) throw dbErr;
 
-      if (res.ok) {
-        await supabase
-          .from("cris_tech_disparos")
-          .update({ status: "enviado", erro_mensagem: null, updated_at: new Date().toISOString() })
-          .eq("id", disparo.id);
-
-        toast.success("Disparo enviado com sucesso!");
-        fetchDisparos();
-      } else {
-        const textErr = await res.text();
-        throw new Error(textErr || "Erro no webhook.");
+      const triggerRes = await fetch("/api/cron/process-dispatches");
+      const triggerData = await triggerRes.json();
+      
+      if (!triggerRes.ok) {
+        throw new Error(triggerData.error ?? "Erro ao processar disparo imediato.");
       }
+
+      toast.success("Disparo enviado com sucesso!");
+      fetchDisparos();
     } catch (err: any) {
       toast.error(`Falha ao disparar: ${err.message}`);
       await supabase
@@ -152,6 +145,9 @@ export default function DisparosPage() {
                     Tipo
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    Destino
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     Mensagem
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
@@ -172,14 +168,27 @@ export default function DisparosPage() {
                 {disparos.map((d) => (
                   <tr key={d.id} className="border-b border-[#1E1E1E] last:border-0 hover:bg-[#1A1A1A] transition-colors">
                     <td className="px-4 py-3">
-                      {d.tipo === "texto_imagem" ? (
+                      {d.tipo === "texto_imagem" && (
                         <span className="flex items-center gap-1.5 rounded bg-blue-900/30 text-blue-400 px-2 py-0.5 text-xs font-medium w-fit border border-blue-900/50">
                           <ImageIcon size={12} /> Imagem + Texto
                         </span>
-                      ) : (
+                      )}
+                      {d.tipo === "texto" && (
                         <span className="flex items-center gap-1.5 rounded bg-gray-800 text-gray-300 px-2 py-0.5 text-xs font-medium w-fit border border-gray-700">
                           <MessageSquare size={12} /> Apenas Texto
                         </span>
+                      )}
+                      {d.tipo === "imagem" && (
+                        <span className="flex items-center gap-1.5 rounded bg-purple-900/30 text-purple-400 px-2 py-0.5 text-xs font-medium w-fit border border-purple-900/50">
+                          <ImageIcon size={12} /> Apenas Imagem
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {d.destinatario === "clientes" ? (
+                        <span className="text-amber-400 font-medium">Clientes</span>
+                      ) : (
+                        <span className="text-blue-400 font-medium">Grupos</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-white max-w-[300px] truncate" title={d.texto}>

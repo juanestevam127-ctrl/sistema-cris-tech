@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { X, Upload, Send, MessageSquare, Image as ImageIcon, Loader2 } from "lucide-react";
+import { X, Upload, Send, MessageSquare, Image as ImageIcon, Loader2, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/Button";
@@ -14,9 +14,10 @@ interface ModalDisparoProps {
 
 export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [tipo, setTipo] = useState<"texto" | "texto_imagem">("texto");
+  const [tipo, setTipo] = useState<"texto" | "texto_imagem" | "imagem">("texto");
   const [texto, setTexto] = useState("");
   const [imagemUrl, setImagemUrl] = useState("");
+  const [destinatario, setDestinatario] = useState<"grupo" | "clientes">("grupo");
   
   const [uploadingImage, setUploadingImage] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -63,15 +64,57 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
     }
   };
 
+  const validarHorarioDisparo = async (targetTime: Date): Promise<boolean> => {
+    // 1. Validar se é a partir do meio-dia (12:00)
+    const hours = targetTime.getHours();
+    if (hours < 12) {
+      toast.error("Disparos só podem ser realizados ou agendados a partir do meio-dia (12:00).");
+      return false;
+    }
+
+    // 2. Validar intervalo de 3 horas
+    try {
+      const { data: existing, error } = await supabase
+        .from("cris_tech_disparos")
+        .select("agendado_para")
+        .neq("status", "erro");
+
+      if (error) throw error;
+
+      if (existing && existing.length > 0) {
+        const targetMs = targetTime.getTime();
+        const threeHoursMs = 3 * 60 * 60 * 1000;
+
+        const conflito = existing.find((d) => {
+          if (!d.agendado_para) return false;
+          const diff = Math.abs(new Date(d.agendado_para).getTime() - targetMs);
+          return diff < threeHoursMs;
+        });
+
+        if (conflito) {
+          toast.error("O intervalo mínimo obrigatório entre disparos é de 3 horas. Escolha outro horário.");
+          return false;
+        }
+      }
+    } catch (err) {
+      console.error("Erro na validação de intervalo:", err);
+    }
+    return true;
+  };
+
   const handleSalvar = async () => {
-    if (!texto.trim()) {
+    if (tipo !== "imagem" && !texto.trim()) {
       toast.error("Escreva uma mensagem antes de salvar.");
       return;
     }
-    if (tipo === "texto_imagem" && !imagemUrl) {
-      toast.error("Suba uma imagem para o disparo de Imagem + Texto.");
+    if (tipo !== "texto" && !imagemUrl) {
+      toast.error("Suba uma imagem para o disparo.");
       return;
     }
+
+    const targetTime = agendamentoTipo === "agora" ? new Date() : new Date(dataHoraAgendamento);
+    const valid = await validarHorarioDisparo(targetTime);
+    if (!valid) return;
 
     setSalvando(true);
     try {
@@ -82,10 +125,11 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
         .from("cris_tech_disparos")
         .insert({
           tipo,
-          texto: texto.trim(),
-          imagem_url: tipo === "texto_imagem" ? imagemUrl : null,
+          texto: tipo === "imagem" ? null : texto.trim(),
+          imagem_url: tipo !== "texto" ? imagemUrl : null,
+          destinatario,
           status: "pendente",
-          agendado_para: agendamentoTipo === "agendado" && dataHoraAgendamento ? new Date(dataHoraAgendamento).toISOString() : new Date().toISOString(),
+          agendado_para: targetTime.toISOString(),
           criado_por: userId || null,
         });
 
@@ -106,12 +150,12 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
   };
 
   const handleDisparar = async () => {
-    if (!texto.trim()) {
+    if (tipo !== "imagem" && !texto.trim()) {
       toast.error("Escreva uma mensagem antes de disparar.");
       return;
     }
-    if (tipo === "texto_imagem" && !imagemUrl) {
-      toast.error("Suba uma imagem para o disparo de Imagem + Texto.");
+    if (tipo !== "texto" && !imagemUrl) {
+      toast.error("Suba uma imagem para o disparo.");
       return;
     }
     if (agendamentoTipo === "agendado" && !dataHoraAgendamento) {
@@ -119,24 +163,25 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
       return;
     }
 
+    const targetTime = agendamentoTipo === "agora" ? new Date() : new Date(dataHoraAgendamento);
+    const valid = await validarHorarioDisparo(targetTime);
+    if (!valid) return;
+
     setEnviando(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
-
-      const dataAgendamento = agendamentoTipo === "agora" 
-        ? new Date().toISOString() 
-        : new Date(dataHoraAgendamento).toISOString();
 
       // 1. Salvar no banco
       const { error: dbError } = await supabase
         .from("cris_tech_disparos")
         .insert({
           tipo,
-          texto: texto.trim(),
-          imagem_url: tipo === "texto_imagem" ? imagemUrl : null,
+          texto: tipo === "imagem" ? null : texto.trim(),
+          imagem_url: tipo !== "texto" ? imagemUrl : null,
+          destinatario,
           status: "pendente",
-          agendado_para: dataAgendamento,
+          agendado_para: targetTime.toISOString(),
           criado_por: userId || null,
         });
 
@@ -192,34 +237,76 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
               Formato de Disparo
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => { setTipo("texto"); setImagemUrl(""); }}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-semibold border transition ${
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 font-semibold border transition ${
                   tipo === "texto"
                     ? "bg-[#1E1E1E] text-white border-[#CC0000]"
                     : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
                 }`}
               >
-                <MessageSquare size={16} /> Apenas Texto
+                <MessageSquare size={14} /> Texto
               </button>
               <button
                 type="button"
                 onClick={() => setTipo("texto_imagem")}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-semibold border transition ${
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 font-semibold border transition ${
                   tipo === "texto_imagem"
                     ? "bg-[#1E1E1E] text-white border-[#CC0000]"
                     : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
                 }`}
               >
-                <ImageIcon size={16} /> Texto + Imagem
+                <ImageIcon size={14} /> Texto + Img
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTipo("imagem"); setTexto(""); }}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 font-semibold border transition ${
+                  tipo === "imagem"
+                    ? "bg-[#1E1E1E] text-white border-[#CC0000]"
+                    : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
+                }`}
+              >
+                <ImageIcon size={14} /> Apenas Img
               </button>
             </div>
           </div>
 
-          {/* Imagem (Se for texto + imagem) */}
-          {tipo === "texto_imagem" && (
+          {/* Destinatário (Destino) */}
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+              Destino do Disparo
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDestinatario("grupo")}
+                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-semibold border transition ${
+                  destinatario === "grupo"
+                    ? "bg-[#1E1E1E] text-white border-[#CC0000]"
+                    : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
+                }`}
+              >
+                <Users size={16} /> Disparar para Grupos
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinatario("clientes")}
+                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-semibold border transition ${
+                  destinatario === "clientes"
+                    ? "bg-[#1E1E1E] text-white border-[#CC0000]"
+                    : "bg-[#0A0A0A] text-[#9CA3AF] border-[#1E1E1E] hover:border-[#333]"
+                }`}
+              >
+                <Users size={16} /> Disparar para Clientes
+              </button>
+            </div>
+          </div>
+
+          {/* Imagem (Se for texto + imagem ou apenas imagem) */}
+          {tipo !== "texto" && (
             <div className="space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
                 Selecione a Imagem
@@ -276,18 +363,20 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
           )}
 
           {/* Área de Texto */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
-              Mensagem do Disparo
-            </label>
-            <textarea
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              placeholder="Digite a mensagem para enviar..."
-              rows={6}
-              className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
-            />
-          </div>
+          {tipo !== "imagem" && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">
+                Mensagem do Disparo
+              </label>
+              <textarea
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                placeholder="Digite a mensagem para enviar..."
+                rows={6}
+                className="w-full rounded-lg border border-[#1E1E1E] bg-[#0A0A0A] px-4 py-2 text-sm text-white placeholder-[#6B7280] focus:outline-none focus:ring-2 focus:ring-[#CC0000]"
+              />
+            </div>
+          )}
 
           {/* Tipo de Envio / Agendamento */}
           <div className="space-y-1.5">
@@ -350,7 +439,7 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
             variant="secondary"
             onClick={handleSalvar}
             loading={salvando}
-            disabled={enviando || uploadingImage || !texto.trim()}
+            disabled={enviando || uploadingImage || (tipo !== "imagem" && !texto.trim())}
           >
             Salvar Rascunho
           </Button>
@@ -358,7 +447,7 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
             variant="primary"
             onClick={handleDisparar}
             loading={enviando}
-            disabled={salvando || uploadingImage || !texto.trim()}
+            disabled={salvando || uploadingImage || (tipo !== "imagem" && !texto.trim())}
           >
             {agendamentoTipo === "agora" ? "Disparar Mensagem" : "Agendar Disparo"}
           </Button>

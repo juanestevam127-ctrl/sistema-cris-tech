@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Image, Users, Wrench, FileText, Settings, LogOut, X, Send } from "lucide-react";
+import { Image, Users, Wrench, FileText, Settings, LogOut, X, Send, UserCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 
@@ -107,6 +107,17 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           >
             <Send size={20} />
             Disparos
+          </Link>
+          <Link
+            href="/clientes-disparos"
+            onClick={onClose}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[#9CA3AF] transition-colors hover:bg-[#1E1E1E] hover:text-white ${pathname.startsWith("/clientes-disparos")
+              ? "bg-[#A30000] text-white hover:bg-[#A30000]"
+              : ""
+              }`}
+          >
+            <UserCheck size={20} />
+            Clientes Disparos
           </Link>
 
           {showConfig && (

@@ -30,11 +30,27 @@ export function ModalClienteDisparo({
   const [telefone, setTelefone] = useState("");
   const [salvando, setSalvando] = useState(false);
 
+  const formatarMascaraTelefone = (value: string) => {
+    const raw = value.replace(/\D/g, "");
+    if (raw.length <= 2) return raw;
+    if (raw.length <= 6) {
+      return `(${raw.substring(0, 2)}) ${raw.substring(2)}`;
+    }
+    if (raw.length <= 10) {
+      return `(${raw.substring(0, 2)}) ${raw.substring(2, 6)}-${raw.substring(6)}`;
+    }
+    return `(${raw.substring(0, 2)}) ${raw.substring(2, 7)}-${raw.substring(7, 11)}`;
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (cliente) {
         setNome(cliente.nome);
-        setTelefone(cliente.telefone);
+        let tel = cliente.telefone;
+        if (tel.startsWith("55")) {
+          tel = tel.substring(2);
+        }
+        setTelefone(formatarMascaraTelefone(tel));
       } else {
         setNome("");
         setTelefone("");
@@ -46,10 +62,12 @@ export function ModalClienteDisparo({
 
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nome.trim() || !telefone.trim()) {
-      toast.error("Preencha todos os campos.");
+    const rawTelefone = telefone.replace(/\D/g, "");
+    if (rawTelefone.length < 10 || rawTelefone.length > 11) {
+      toast.error("Telefone inválido. Insira o DDD + número (10 ou 11 dígitos).");
       return;
     }
+    const telefoneFinal = "55" + rawTelefone;
 
     setSalvando(true);
     try {
@@ -62,7 +80,7 @@ export function ModalClienteDisparo({
           .from("cris_tech_clientes_disparo")
           .update({
             nome: nome.trim(),
-            telefone: telefone.trim(),
+            telefone: telefoneFinal,
           })
           .eq("id", cliente.id);
 
@@ -74,7 +92,7 @@ export function ModalClienteDisparo({
           .from("cris_tech_clientes_disparo")
           .insert({
             nome: nome.trim(),
-            telefone: telefone.trim(),
+            telefone: telefoneFinal,
             criado_por: userId || null,
           });
 
@@ -126,13 +144,13 @@ export function ModalClienteDisparo({
               </label>
               <Input
                 type="text"
-                placeholder="Ex: 5511999999999"
+                placeholder="Ex: (11) 99999-9999"
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
+                onChange={(e) => setTelefone(formatarMascaraTelefone(e.target.value))}
                 required
               />
               <p className="text-[10px] text-[#6B7280] mt-1">
-                Insira o número com DDI (55), DDD e número sem traços ou espaços.
+                Insira o número com o DDD. O prefixo internacional (55) será adicionado automaticamente ao salvar.
               </p>
             </div>
           </div>

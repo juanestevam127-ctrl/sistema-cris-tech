@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { ModalClienteDisparo } from "@/components/operacao/ModalClienteDisparo";
+import { ModalImportarClientesDisparo } from "@/components/operacao/ModalImportarClientesDisparo";
 import { ModalConfirmacao } from "@/components/manutencao/ModalConfirmacao";
 import { supabase } from "@/lib/supabaseClient";
-import { UserCheck, Trash2, Pencil, Search, Phone } from "lucide-react";
+import { UserCheck, Trash2, Pencil, Search, Phone, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface ClienteDisparo {
@@ -21,6 +22,7 @@ export default function ClientesDisparosPage() {
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalNovo, setModalNovo] = useState(false);
+  const [modalImportar, setModalImportar] = useState(false);
   const [clienteEditando, setClienteEditando] = useState<ClienteDisparo | null>(null);
   const [confirmExcluir, setConfirmExcluir] = useState<ClienteDisparo | null>(null);
   const [excluindo, setExcluindo] = useState(false);
@@ -89,9 +91,19 @@ export default function ClientesDisparosPage() {
               Gerencie a lista de contatos independentes cadastrados para o envio de mensagens em massa.
             </p>
           </div>
-          <Button variant="primary" onClick={() => { setClienteEditando(null); setModalNovo(true); }}>
-            + Novo Cliente
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setModalImportar(true)}
+              className="flex items-center gap-2"
+            >
+              <Upload size={16} />
+              Importar CSV
+            </Button>
+            <Button variant="primary" onClick={() => { setClienteEditando(null); setModalNovo(true); }}>
+              + Novo Cliente
+            </Button>
+          </div>
         </div>
 
         {/* Busca */}
@@ -176,6 +188,12 @@ export default function ClientesDisparosPage() {
         onClose={() => { setModalNovo(false); setClienteEditando(null); }}
         onSuccess={fetchClientes}
         cliente={clienteEditando}
+      />
+
+      <ModalImportarClientesDisparo
+        isOpen={modalImportar}
+        onClose={() => setModalImportar(false)}
+        onSuccess={fetchClientes}
       />
 
       <ModalConfirmacao

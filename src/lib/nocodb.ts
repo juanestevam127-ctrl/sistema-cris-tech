@@ -111,7 +111,14 @@ export const nocodb = {
   async insert<T = any>(tableName: NocoTableName, data: Partial<T> | Partial<T>[]): Promise<T | T[]> {
     const tableId = NOCO_TABLES[tableName];
     const isArray = Array.isArray(data);
-    const body = isArray ? data : [data];
+    const rawList = isArray ? data : [data];
+
+    // Garante que cada registro tenha um UUID gerado automaticamente caso não fornecido
+    const body = rawList.map((item: any) => ({
+      id: item.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : undefined),
+      ...item,
+    }));
+
     const res = await nocodbRequest<any>(`/api/v2/tables/${tableId}/records`, {
       method: "POST",
       body,

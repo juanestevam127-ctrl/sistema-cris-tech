@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import toast from "react-hot-toast";
@@ -20,41 +19,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({ email, password });
-
-      if (authError) {
-        setError("Credenciais inválidas. Tente novamente.");
-        setLoading(false);
-        return;
-      }
-
-      if (!authData.user) {
-        setError("Erro ao fazer login.");
-        setLoading(false);
-        return;
-      }
-
-      // 2. Verificar usuário no banco via API (ignora RLS do cliente e auto-repara ID se necessário)
-      const verifyRes = await fetch("/api/auth/verify", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: authData.user.email,
-          authId: authData.user.id
-        })
+        body: JSON.stringify({ email, password }),
       });
 
-      if (!verifyRes.ok) {
-        const verifyData = await verifyRes.json();
-        console.error("Erro na verificação do banco:", verifyData.error);
-        await supabase.auth.signOut();
-        setError(verifyData.error || "Perfil não configurado.");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Credenciais inválidas. Tente novamente.");
         setLoading(false);
         return;
       }
 
-      console.log("Login verificado e sincronizado, redirecionando...");
       toast.success("Login realizado com sucesso!");
       window.location.href = "/operacao";
     } catch (err) {
@@ -98,13 +76,9 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error && (
-            <p className="text-sm text-red-500" role="alert">
-              {error}
-            </p>
-          )}
-          <Button type="submit" variant="primary" loading={loading} className="w-full">
-            Entrar
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
       </div>

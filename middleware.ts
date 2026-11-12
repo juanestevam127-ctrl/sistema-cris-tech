@@ -1,45 +1,38 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { jwtVerify } from "jose";
+
+const AUTH_SECRET = process.env.AUTH_SECRET || "cris-tech-secret-nocodb-key-2026-safe";
+const SECRET_KEY = new TextEncoder().encode(AUTH_SECRET);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  let response = NextResponse.next({ request });
+  const token = request.cookies.get("cris_tech_session")?.value;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
+  let user: any = null;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, SECRET_KEY);
+      user = payload;
+    } catch {
+      user = null;
     }
-  );
+  }
 
-  // Refresh session and validate user
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // If on login page and already authenticated, redirect to operacao
+  // Redireciona usuários logados que tentam acessar a tela de login
   if (pathname === "/login") {
     if (user) {
       return NextResponse.redirect(new URL("/operacao", request.url));
     }
-    return response;
+    return NextResponse.next();
   }
 
-  // If not authenticated and not on login page, redirect to login
+  // Se não autenticado e rota protegida, redireciona para login
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

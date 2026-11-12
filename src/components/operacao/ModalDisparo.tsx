@@ -85,7 +85,7 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
         const targetMs = targetTime.getTime();
         const threeHoursMs = 3 * 60 * 60 * 1000;
 
-        const conflito = existing.find((d) => {
+        const conflito = existing.find((d: any) => {
           if (!d.agendado_para) return false;
           const diff = Math.abs(new Date(d.agendado_para).getTime() - targetMs);
           return diff < threeHoursMs;

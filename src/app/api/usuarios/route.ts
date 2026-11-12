@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         email: String(email).trim(),
         nome: nome ? String(nome).trim() : null,
         role: roleValido,
+        senha: String(password),
       });
 
     if (insertError) {

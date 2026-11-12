@@ -21,7 +21,7 @@ export function useLayouts() {
       console.error("Erro ao buscar layouts:", error);
       setLayouts([]);
     } else {
-      const sorted = (data || []).map((l) => ({
+      const sorted = (data || []).map((l: any) => ({
         ...l,
         campos: (l.cris_tech_campos || [])
           .sort((a: CrisTechCampo, b: CrisTechCampo) => a.ordem - b.ordem),

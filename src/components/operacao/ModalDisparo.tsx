@@ -39,23 +39,15 @@ export function ModalDisparo({ isOpen, onClose, onSuccess }: ModalDisparoProps) 
 
     setUploadingImage(true);
     try {
-      const BUCKET = "cris-tech-images";
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const path = `uploads/disparos/${Date.now()}_${safeName}`;
-
       const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .from("cristech")
+        .upload("", file);
 
-      if (error) {
-        throw new Error(error.message || "Erro no upload.");
+      if (error || !data) {
+        throw new Error(error?.message || "Erro no upload.");
       }
 
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      setImagemUrl(urlData.publicUrl);
+      setImagemUrl(data.publicUrl);
       toast.success("Imagem enviada!");
     } catch (err: any) {
       toast.error(`Falha no upload: ${err.message}`);

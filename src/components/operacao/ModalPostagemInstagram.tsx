@@ -67,9 +67,6 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
   const uploadFile = async (file: File, index: number) => {
     try {
       const BUCKET = "cris-tech-images";
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const path = `uploads/instagram/${Date.now()}_${safeName}`;
-
       setArquivosUpload((prev) => {
         const copy = [...prev];
         copy[index] = { ...copy[index], progress: 30 };
@@ -77,27 +74,16 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
       });
 
       const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .from("cristech")
+        .upload("", file);
 
-      if (error) {
-        throw new Error(error.message || "Erro no upload.");
+      if (error || !data) {
+        throw new Error(error?.message || "Erro no upload.");
       }
 
       setArquivosUpload((prev) => {
         const copy = [...prev];
-        copy[index] = { ...copy[index], progress: 70 };
-        return copy;
-      });
-
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-      setArquivosUpload((prev) => {
-        const copy = [...prev];
-        copy[index] = { name: file.name, progress: 100, url: urlData.publicUrl };
+        copy[index] = { name: file.name, progress: 100, url: data.publicUrl };
         return copy;
       });
     } catch (err: any) {
@@ -249,23 +235,15 @@ export function ModalPostagemInstagram({ isOpen, onClose }: ModalPostagemInstagr
 
     setUploadingCapa(true);
     try {
-      const BUCKET = "cris-tech-images";
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const path = `uploads/instagram_covers/${Date.now()}_${safeName}`;
-
       const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .from("cristech")
+        .upload("", file);
 
-      if (error) {
-        throw new Error(error.message || "Erro no upload.");
+      if (error || !data) {
+        throw new Error(error?.message || "Erro no upload.");
       }
 
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      setCapaReels(urlData.publicUrl);
+      setCapaReels(data.publicUrl);
       toast.success("Capa enviada!");
     } catch (err: any) {
       toast.error(`Falha no upload da capa: ${err.message}`);

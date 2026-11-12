@@ -1,14 +1,19 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { verifySessionToken } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const { data: { session } } = await supabase.auth.getSession();
+  const cookieStore = await cookies();
+  const token = cookieStore.get("cris_tech_session")?.value;
 
-  if (!session) {
+  if (!token) {
+    redirect("/login");
+  }
+
+  const user = await verifySessionToken(token);
+  if (!user) {
     redirect("/login");
   }
 
